@@ -676,6 +676,17 @@ SEMINAR = "Shevet Tapuach - Opening Seminar 2026-27"
 YOM_TZOFE = "Shevet Tapuach - Yom Tzofe 2026"
 STORE = "Tapuach Store (merchandise -- not a signup fee)"
 
+# Known payer-name spelling variants -- confirmed by Michal, not guessed. The exact-match payer-name fallback
+# below (and everywhere else a payer name gets looked up against a roster) is deliberately strict, since fuzzy
+# name matching risks silently misattributing one family's payment to another -- so a real billing-name/roster
+# spelling mismatch like this needs an explicit, confirmed alias rather than a fuzzy-match heuristic. Confirmed
+# Oct 30, 2026: "Shay Zurim" is the Authorize.net billing name for the same person the Annual/Yom Tzofe rosters
+# have on file as "Shai Zurim" (Ella Zurim's father, via the Annual Roster's Parent 2 Contact Name -- see the
+# Yom Tzofe cross-reference above). Add future confirmed variants here the same way, lowercase on both sides.
+KNOWN_PAYER_NAME_ALIASES = {
+    "shay zurim": "shai zurim",
+}
+
 # Participant (child) name -> family email. Used ONLY to match Venmo-paid signups (see the Venmo block below) --
 # Michal logs the participant's actual name on her "Venmo signups for tracker" helper sheet, which is far more
 # reliable than trying to fuzzy-match a Venmo display name to a parent's roster name (the approach used for
@@ -1149,7 +1160,9 @@ for (date, time, signup, amount, name, email, card, invoice, txn_id) in transact
                 alias_map = name_to_yomtzofe_family_key
             else:
                 alias_map = name_to_family_key
-            alias_email = alias_map.get(name.strip().lower())
+            _payer_name_key = name.strip().lower()
+            _payer_name_key = KNOWN_PAYER_NAME_ALIASES.get(_payer_name_key, _payer_name_key)
+            alias_email = alias_map.get(_payer_name_key)
             if alias_email:
                 alias_kids = dedupe(lookup.get(alias_email, []))
                 if alias_kids:
