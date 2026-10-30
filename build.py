@@ -676,15 +676,26 @@ SEMINAR = "Shevet Tapuach - Opening Seminar 2026-27"
 YOM_TZOFE = "Shevet Tapuach - Yom Tzofe 2026"
 STORE = "Tapuach Store (merchandise -- not a signup fee)"
 
-# Known payer-name spelling variants -- confirmed by Michal, not guessed. The exact-match payer-name fallback
-# below (and everywhere else a payer name gets looked up against a roster) is deliberately strict, since fuzzy
-# name matching risks silently misattributing one family's payment to another -- so a real billing-name/roster
-# spelling mismatch like this needs an explicit, confirmed alias rather than a fuzzy-match heuristic. Confirmed
-# Oct 30, 2026: "Shay Zurim" is the Authorize.net billing name for the same person the Annual/Yom Tzofe rosters
-# have on file as "Shai Zurim" (Ella Zurim's father, via the Annual Roster's Parent 2 Contact Name -- see the
-# Yom Tzofe cross-reference above). Add future confirmed variants here the same way, lowercase on both sides.
+# Known payer-name corrections -- confirmed by Michal, not guessed. Applied to the raw Authorize.net payer name
+# everywhere one gets looked up against stored records: the roster alias_map fallback below, AND the Withdrawals
+# "already removed from the roster, don't flag" check (withdrawn_name_signup, see "Withdrawals, part 1" below) --
+# both are deliberately strict exact-match, since fuzzy name matching risks silently misattributing one family's
+# payment to another, so a real mismatch needs an explicit, confirmed correction rather than a fuzzy-match
+# heuristic. Two kinds of mismatch end up here:
+#   - A spelling variant of the SAME person between the Authorize.net billing name and how they're on file.
+#     Confirmed Oct 30, 2026: "Shay Zurim" (billing name) = "Shai Zurim" (Annual Roster's Parent 2 Contact Name
+#     for Ella Zurim -- see the Yom Tzofe cross-reference above). "Shani Vahniah" (billing name) = "Shani Vahnish"
+#     (the spelling on the Withdrawals helper sheet, for withdrawn participant "Vahnish, Naomi").
+#   - A DIFFERENT co-parent paying, for a family that has since fully withdrawn and been removed from the live
+#     roster -- so there's no Parent 1/Parent 2 roster row left anywhere to cross-reference the way the Yom Tzofe
+#     fix above does for still-registered families. Confirmed Oct 30, 2026: "Matan Golan" paid for his and Reut
+#     Golan's two withdrawn kids (Yaela and Tamar Golan) -- the Withdrawals sheet is logged under Reut Golan's
+#     name, so this maps his payment to hers for matching purposes.
+# Add future confirmed corrections here the same way, lowercase on both sides.
 KNOWN_PAYER_NAME_ALIASES = {
     "shay zurim": "shai zurim",
+    "shani vahniah": "shani vahnish",
+    "matan golan": "reut golan",
 }
 
 # Participant (child) name -> family email. Used ONLY to match Venmo-paid signups (see the Venmo block below) --
@@ -1138,6 +1149,10 @@ resolved_email = {}  # txn_id -> the roster email key actually used to match (ma
                       # email via the name fallback below) -- used downstream for family totals/notes.
 for (date, time, signup, amount, name, email, card, invoice, txn_id) in transactions:
     alias_note = ""
+    # Confirmed-correction normalization (see KNOWN_PAYER_NAME_ALIASES above) -- applied once here and reused for
+    # every payer-name lookup below (roster alias_map fallback AND the Withdrawals suppression check), so the two
+    # can never drift out of sync.
+    _payer_name_key = KNOWN_PAYER_NAME_ALIASES.get(name.strip().lower(), name.strip().lower())
     if signup == STORE:
         matched = ""
         flag = "OK"
@@ -1160,8 +1175,6 @@ for (date, time, signup, amount, name, email, card, invoice, txn_id) in transact
                 alias_map = name_to_yomtzofe_family_key
             else:
                 alias_map = name_to_family_key
-            _payer_name_key = name.strip().lower()
-            _payer_name_key = KNOWN_PAYER_NAME_ALIASES.get(_payer_name_key, _payer_name_key)
             alias_email = alias_map.get(_payer_name_key)
             if alias_email:
                 alias_kids = dedupe(lookup.get(alias_email, []))
@@ -1179,7 +1192,7 @@ for (date, time, signup, amount, name, email, card, invoice, txn_id) in transact
         # can't be matched to anyone on the roster at all is a real problem worth flagging.
         if kids:
             flag = "OK"
-        elif (name.strip().lower(), signup) in withdrawn_name_signup:
+        elif (_payer_name_key, signup) in withdrawn_name_signup:
             # Added Oct 6, 2026 -- this family is logged on the Withdrawals helper sheet for this signup, so a
             # missing roster match here most likely means Michal already removed them from the live roster
             # sheet entirely, not a real data problem. See "Withdrawals, part 1" above.
