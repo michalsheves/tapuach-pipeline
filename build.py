@@ -608,7 +608,9 @@ for srow in seminar_roster_rows:
 # than the Seminar Roster block above. The sheet also has only ONE parent-email column ("Parent 1 Email"), not
 # two, with "Email" (the registrant's own address, which may be the kid's own email) as the fallback family key
 # when Parent 1 Email is blank. Scholarships ARE supported here (added later the same day, per Michal) --
-# applied the same way as Annual/Seminar, see the Scholarships tab/scholarship_expected below.
+# applied the same way as Annual/Seminar, see the Scholarships tab/scholarship_expected below. Payer-name fallback
+# matching (added Oct 30, 2026, see name_to_yomtzofe_family_key below) also indexes this sheet's "Emergency
+# Contact" first/last name as a stand-in second parent, since there's no real Parent 2 field to fall back to here.
 # =========================================================================
 ws = wb.create_sheet("Yom Tzofe Roster")
 ws["A1"] = (f"Registrant snapshot -- from the \"Yom Tzofe for payments\" sheet, a live IMPORTRANGE feed of the Yom Tzofe "
@@ -985,6 +987,33 @@ for srow in seminar_roster_rows:
             name_to_seminar_family_key.setdefault(nm, fam_email)
 
 name_to_yomtzofe_family_key = {}
+# Added Oct 30, 2026, per Michal: the "Yom Tzofe for payments" sheet has only ONE parent-email column (see note
+# above), so unlike Annual/Seminar there's no Parent 2 to fall back to when the OTHER parent is the one who
+# actually pays -- that was silently generating false "Not yet paid" rows (Signups tab) and false "No matching
+# entry on the Yom Tzofe Roster tab" notes (Transactions tab) for a real chunk of families (Barel, Meller/Alter,
+# Manzhosov/Skulovich, Devray-Attia, Gusel confirmed by name match; likely others). The registration form DOES
+# separately capture an "Emergency Contact" first/last name on every row, though, which in practice is very often
+# the other parent -- so it's indexed here as a second name-fallback key, exactly the same pattern as Parent 2
+# Contact Name on the Annual/Seminar rosters above. This is a same-exact-name match only (no fuzzy matching, same
+# convention as the rest of this fallback), so it won't catch every case (e.g. a payer using a fuller name like
+# "Keren Avayu-Deutsch" when Emergency Contact just says "Keren Deutsch") -- those still fall through to "No
+# matching entry" and need a human look, same as before this fix.
+#
+# TWO SEPARATE PASSES, deliberately -- an Emergency Contact is often a grandparent/relative/family friend shared
+# across multiple unrelated families (e.g. "Anat Margalit" appears as Emergency Contact for 3 different Yom Tzofe
+# families in real data), and can even collide with an entirely different family's actual Parent 1 name (real
+# case found while testing this fix, Oct 30, 2026: "Dorin Roth" is Parent 1 for the Roth family, but also listed
+# as Emergency Contact on an unrelated Hakim-family row that happens to sort earlier in the sheet -- a single
+# combined pass with plain setdefault would have let that earlier EC entry permanently claim the "dorin roth" key
+# before the real Roth-family row was ever read, misrouting any payment from the real Dorin Roth to the Hakim
+# family's balance instead of his own). So: pass 1 claims every key from real Parent 1 names first (always wins,
+# regardless of row order); pass 2 then fills in Emergency Contact names only where that key is still unclaimed
+# by a real parent AND unambiguous -- i.e. that same Emergency Contact name isn't also listed for a DIFFERENT
+# family elsewhere on the sheet (a shared grandparent/relative/family friend helping multiple families, e.g. real
+# data has "Anat Margalit" as Emergency Contact for 3 separate unrelated families). An ambiguous name is left out
+# of the fallback entirely rather than guessed at -- a payment under that name still falls through to "No
+# matching entry" for Michal to resolve by hand, same as before this fix, rather than risking it landing on the
+# wrong family's balance.
 for yrow in yomtzofe_roster_rows:
     fam_email = (yrow["Parent 1 Email"].strip().lower().replace("\\_", "_")
                  or yrow["Email"].strip().lower().replace("\\_", "_"))
@@ -993,6 +1022,17 @@ for yrow in yomtzofe_roster_rows:
     nm = yrow["Parent 1 Contact Name"].strip().lower()
     if nm:
         name_to_yomtzofe_family_key.setdefault(nm, fam_email)
+_yomtzofe_ec_families = defaultdict(set)  # emergency-contact name -> set of distinct family emails it's listed for
+for yrow in yomtzofe_roster_rows:
+    fam_email = (yrow["Parent 1 Email"].strip().lower().replace("\\_", "_")
+                 or yrow["Email"].strip().lower().replace("\\_", "_"))
+    ec_nm = (yrow.get("Emergency Contact - First Name", "").strip() + " "
+             + yrow.get("Emergency Contact - Last Name", "").strip()).strip().lower()
+    if fam_email and ec_nm:
+        _yomtzofe_ec_families[ec_nm].add(fam_email)
+for ec_nm, _fams in _yomtzofe_ec_families.items():
+    if len(_fams) == 1:
+        name_to_yomtzofe_family_key.setdefault(ec_nm, next(iter(_fams)))
 
 def dedupe(seq):
     seen = set(); out = []
