@@ -991,13 +991,23 @@ name_to_yomtzofe_family_key = {}
 # above), so unlike Annual/Seminar there's no Parent 2 to fall back to when the OTHER parent is the one who
 # actually pays -- that was silently generating false "Not yet paid" rows (Signups tab) and false "No matching
 # entry on the Yom Tzofe Roster tab" notes (Transactions tab) for a real chunk of families (Barel, Meller/Alter,
-# Manzhosov/Skulovich, Devray-Attia, Gusel confirmed by name match; likely others). The registration form DOES
-# separately capture an "Emergency Contact" first/last name on every row, though, which in practice is very often
-# the other parent -- so it's indexed here as a second name-fallback key, exactly the same pattern as Parent 2
-# Contact Name on the Annual/Seminar rosters above. This is a same-exact-name match only (no fuzzy matching, same
-# convention as the rest of this fallback), so it won't catch every case (e.g. a payer using a fuller name like
-# "Keren Avayu-Deutsch" when Emergency Contact just says "Keren Deutsch") -- those still fall through to "No
-# matching entry" and need a human look, same as before this fix.
+# Manzhosov/Skulovich, Devray-Attia, Gusel confirmed by name match; likely others).
+#
+# TWO name sources are used to fill this gap, in priority order:
+#
+# 1) (HIGH TRUST) The SAME kid is very often ALSO registered for Annual Membership, and that roster (roster_rows,
+#    "Yearly Signups for payments") DOES capture both parents properly -- per Michal, Oct 30, 2026: Keren Wiser
+#    (Maya Wiser's mother), Shai Zurim (Ella Zurim's father), and Keren Avayu-Deutsch (Eden Deutsch's mother) are
+#    all real second parents sitting right there as "Parent 2 Contact Name" on the Annual Roster, even though the
+#    Yom Tzofe sheet itself only ever lists the first parent. So for every Yom Tzofe row, this cross-references
+#    the same Participant Name against the Annual Roster and, if found, pulls in THAT row's Parent 1 and Parent 2
+#    Contact Name too -- real, structured parent data, just sourced from a different roster, so it's folded into
+#    the same top trust tier as the Yom Tzofe sheet's own Parent 1 name (not the heuristic Emergency Contact
+#    fallback below). A kid who only signed up for Yom Tzofe and never for Annual simply won't cross-reference to
+#    anything here, same as before this fix.
+# 2) (HEURISTIC, last resort) The registration form separately captures an "Emergency Contact" first/last name on
+#    every row, which in practice is also very often the other parent -- useful for a family that has no Annual
+#    Membership registration to cross-reference against at all.
 #
 # TWO SEPARATE PASSES, deliberately -- an Emergency Contact is often a grandparent/relative/family friend shared
 # across multiple unrelated families (e.g. "Anat Margalit" appears as Emergency Contact for 3 different Yom Tzofe
@@ -1006,14 +1016,19 @@ name_to_yomtzofe_family_key = {}
 # as Emergency Contact on an unrelated Hakim-family row that happens to sort earlier in the sheet -- a single
 # combined pass with plain setdefault would have let that earlier EC entry permanently claim the "dorin roth" key
 # before the real Roth-family row was ever read, misrouting any payment from the real Dorin Roth to the Hakim
-# family's balance instead of his own). So: pass 1 claims every key from real Parent 1 names first (always wins,
-# regardless of row order); pass 2 then fills in Emergency Contact names only where that key is still unclaimed
-# by a real parent AND unambiguous -- i.e. that same Emergency Contact name isn't also listed for a DIFFERENT
-# family elsewhere on the sheet (a shared grandparent/relative/family friend helping multiple families, e.g. real
-# data has "Anat Margalit" as Emergency Contact for 3 separate unrelated families). An ambiguous name is left out
-# of the fallback entirely rather than guessed at -- a payment under that name still falls through to "No
-# matching entry" for Michal to resolve by hand, same as before this fix, rather than risking it landing on the
-# wrong family's balance.
+# family's balance instead of his own). So: pass 1 claims every key from real parent names first (Yom Tzofe's own
+# Parent 1, plus the Annual-Roster cross-reference above -- always wins, regardless of row order); pass 2 then
+# fills in Emergency Contact names only where that key is still unclaimed by a real parent AND unambiguous -- i.e.
+# that same Emergency Contact name isn't also listed for a DIFFERENT family elsewhere on the sheet. An ambiguous
+# name is left out of the fallback entirely rather than guessed at -- a payment under that name still falls
+# through to "No matching entry" for Michal to resolve by hand, same as before this fix, rather than risking it
+# landing on the wrong family's balance.
+_annual_child_parent_names = {}  # Annual Roster "Contact Name" (lowercased) -> (Parent 1 Name, Parent 2 Name)
+for rr in roster_rows:
+    _cn = rr["Contact Name"].strip().lower()
+    if _cn:
+        _annual_child_parent_names.setdefault(
+            _cn, (rr["Parent 1 Contact Name"].strip(), rr["Parent 2 Contact Name"].strip()))
 for yrow in yomtzofe_roster_rows:
     fam_email = (yrow["Parent 1 Email"].strip().lower().replace("\\_", "_")
                  or yrow["Email"].strip().lower().replace("\\_", "_"))
@@ -1022,6 +1037,12 @@ for yrow in yomtzofe_roster_rows:
     nm = yrow["Parent 1 Contact Name"].strip().lower()
     if nm:
         name_to_yomtzofe_family_key.setdefault(nm, fam_email)
+    _annual_parents = _annual_child_parent_names.get(yrow["Participant Name"].strip().lower())
+    if _annual_parents:
+        for _p_nm in _annual_parents:
+            _p_nm = _p_nm.strip().lower()
+            if _p_nm:
+                name_to_yomtzofe_family_key.setdefault(_p_nm, fam_email)
 _yomtzofe_ec_families = defaultdict(set)  # emergency-contact name -> set of distinct family emails it's listed for
 for yrow in yomtzofe_roster_rows:
     fam_email = (yrow["Parent 1 Email"].strip().lower().replace("\\_", "_")
