@@ -676,6 +676,20 @@ SEMINAR = "Shevet Tapuach - Opening Seminar 2026-27"
 YOM_TZOFE = "Shevet Tapuach - Yom Tzofe 2026"
 STORE = "Tapuach Store (merchandise -- not a signup fee)"
 
+# Known test accounts -- confirmed by Michal, Nov 3, 2026: "Yaniv Biran" (kroitero94@gmail.com) is her own test
+# account, used to smoke-test the signup/payment flow for a new event before it goes live to real families --
+# usually a sub-$1 card-verification-style charge, not a real due. He was previously handled with one-off notes on
+# individual transactions (see the old SPECIAL_NOTES/notes_map entries this replaced), but Michal wants him fully
+# disregarded everywhere from here on, not just annotated, so he's excluded upstream instead: filtered out of
+# `transactions` right below (which is what the Transactions/Signups/Donations/Store Purchases tabs and the
+# Dashboard are all built from) AND skipped in the Reconciliation gap-check below (which reads Authorize.net's own
+# report independently of `transactions`, so it needs its own matching skip or his real, approved test charge
+# would show up there as a false "gap worth investigating"). He has never actually registered a child on any
+# roster (confirmed against the live Annual Roster, Nov 3, 2026), so there is nothing to clean up on that side.
+TEST_ACCOUNT_EMAILS = {
+    "kroitero94@gmail.com",
+}
+
 # Known payer-name corrections -- confirmed by Michal, not guessed. Applied to the raw Authorize.net payer name
 # everywhere one gets looked up against stored records: the roster alias_map fallback below, AND the Withdrawals
 # "already removed from the roster, don't flag" check (withdrawn_name_signup, see "Withdrawals, part 1" below) --
@@ -960,8 +974,14 @@ if _store_order_parsed:
 
 _parsed_tx = sorted(_parsed_tx + _venmo_parsed + _store_order_parsed, key=lambda x: x[0])
 
+# Drop known test-account transactions here, upstream of everything (Transactions, Signups, Donations, Store
+# Purchases, Dashboard) -- see TEST_ACCOUNT_EMAILS above. Row format: (date, time, signup, amount, name, email,
+# card, invoice, txn_id) -- email is index 5.
+_test_txn_count = sum(1 for _, row in _parsed_tx if row[5].strip().lower() in TEST_ACCOUNT_EMAILS)
+_parsed_tx = [(dt, row) for dt, row in _parsed_tx if row[5].strip().lower() not in TEST_ACCOUNT_EMAILS]
+
 transactions = [row for _, row in _parsed_tx]
-print("transactions loaded from CSV:", len(transactions))
+print("transactions loaded from CSV:", len(transactions), "| test-account transactions excluded:", _test_txn_count)
 
 # Human-readable date range spanning every loaded transaction, for the Transactions tab header -- computed live so
 # it stays correct as more thread_*.csv files get added on each daily refresh, instead of a hardcoded range.
@@ -1125,7 +1145,6 @@ for _wr in withdrawal_rows_raw:
     withdrawn_name_signup.add((_w_parent.lower(), _withdrawal_event_to_signup(_wr.get("event"))))
 
 notes_map = {
-    "kroitero94@gmail.com|" + ANNUAL: "$1.00 looks like a card-verification/test charge ahead of a recurring plan, not a real payment.",
     "k.mijelshon@gmail.com|" + ANNUAL: "2 kids on file (Yuval Elena, Gal Irma) -- confirm whether this payment covers one or both.",
     "meitalyitzhak@gmail.com|" + STORE: ("Tapuach Store merchandise purchase ($30.00) -- unrelated to Annual/Seminar signup fees. Logged "
                                           "here for a complete ledger, but excluded from the Signups tab and the Dashboard's "
@@ -1434,6 +1453,11 @@ if recon_available:
     for _tid, _rdt, _rr in _report_parsed:
         if _tid in _seen_txnid:
             continue  # already accounted for via a receipt email -- no gap
+        if _rr.get("Email", "").strip().lower() in TEST_ACCOUNT_EMAILS:
+            # See TEST_ACCOUNT_EMAILS above -- this report is pulled independently of `transactions` (which
+            # already excludes test-account rows), so it needs its own skip or a real, approved test charge would
+            # show up here as a false "gap worth investigating" even though it was never meant to be tracked.
+            continue
         if _rr.get("Response Code", "").strip() != "1":
             # Added Oct 5, 2026, per Michal -- a run flagged 4 "gaps" (Orital Karelic $2,130 Aug 23, Gili Sharett
             # $183 Aug 25, Avishag Iluz $740 Aug 27, Amy Nachon $1,550 Sep 27) that a manual Gmail search couldn't
@@ -2546,7 +2570,6 @@ print("withdrawal rows loaded:", len(withdrawal_rows_raw), "| matched to a famil
 # Seminar Roster pricing computed automatically below, so this only needs to grow when a payment is a real oddity
 # (test charge, short payment, roster/fee mismatch, duplicate charge, unrelated purchase), not for every payer.
 SPECIAL_NOTES = {
-    ("kroitero94@gmail.com", ANNUAL): (0, "Verification charge only ($1.00) -- not a real due."),
     ("noa.reikhav@gmail.com", ANNUAL): (annual_family_total("noa.reikhav@gmail.com"),
         sibling_note("noa.reikhav@gmail.com", " Includes an apparent duplicate $207.15 charge on Aug 17 that was refunded (credited) on Aug 19 -- see the per-row notes on Transactions. The two cancel out, leaving one real $207.15 payment.")),
 }
