@@ -524,7 +524,7 @@ for i, h in enumerate(headers):
     ws.cell(row=2, column=1+i, value=h)
 style_header(ws, 2, len(headers), start_col=1)
 
-with open(os.path.join(DATA_DIR, "roster_refresh.csv")) as f:
+with open(os.path.join(DATA_DIR, "roster_refresh.csv"), encoding="utf-8", errors="replace") as f:
     reader = csv.DictReader(f)
     roster_rows = list(reader)
 
@@ -557,7 +557,7 @@ for i, h in enumerate(headers):
     ws.cell(row=2, column=1+i, value=h)
 style_header(ws, 2, len(headers), start_col=1)
 
-with open(os.path.join(DATA_DIR, "seminar_refresh.csv")) as f:
+with open(os.path.join(DATA_DIR, "seminar_refresh.csv"), encoding="utf-8", errors="replace") as f:
     reader = csv.DictReader(f)
     seminar_roster_rows = list(reader)
 
@@ -662,7 +662,7 @@ for i, h in enumerate(headers):
     ws.cell(row=2, column=1+i, value=h)
 style_header(ws, 2, len(headers), start_col=1)
 
-with open(os.path.join(DATA_DIR, "yomtzofe_refresh.csv")) as f:
+with open(os.path.join(DATA_DIR, "yomtzofe_refresh.csv"), encoding="utf-8", errors="replace") as f:
     reader = csv.DictReader(f)
     yomtzofe_roster_rows = list(reader)
 
@@ -2345,7 +2345,7 @@ def _family_seminar_eligible(name_key):
     grades = [_grade_num(k) for k in kids]
     return any(g in SEMINAR_GRADES for g in grades if g is not None)
 
-with open(os.path.join(DATA_DIR, "scholarships_refresh.csv")) as f:
+with open(os.path.join(DATA_DIR, "scholarships_refresh.csv"), encoding="utf-8", errors="replace") as f:
     scholarship_rows = list(csv.DictReader(f))
 
 def _resolve_scholarship_family(name, event):
