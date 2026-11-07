@@ -1879,7 +1879,7 @@ for _por in payout_rows_raw:
 
 ws = wb.create_sheet("Payouts")
 if payouts_available:
-    _in_range_n = sum(1 for r in payout_display_rows if r[9] == "Reference -- see Cumulative Gap")
+    _in_range_n = sum(1 for r in payout_display_rows if r[10] == "Reference -- see Cumulative Gap")
     _pending_n = len(payout_display_rows) - _in_range_n
     if _last_cum_gap_pct is not None:
         _health = ("small and healthy" if abs(_last_cum_gap_pct) < 0.10 else
