@@ -367,6 +367,20 @@ lines = [
      "\"Shevet Tapuach - Tet Camp 2026\" below is a placeholder guessed from the Annual/Seminar/Yom Tzofe naming pattern, not "
      "something seen on a real receipt yet. The grade restriction (9th grade only) is informational here, same as Opening "
      "Seminar's old 10-12 restriction -- nothing in this build actively blocks or flags a non-9th-grader signing up.", "body"),
+    ("Added Nov 11, 2026, per Michal: \"Winter Camp\" is a new event, open to grades 3rd-12th, with a GRADE-TIERED flat fee "
+     "(no sibling discount) -- $405/participant for grades 3rd-9th, $320/participant for grades 10th-12th (confirmed by Michal). "
+     "That's a different shape than every event added so far: Annual uses sibling-discount tiers, while Seminar/Yom Tzofe/Tet "
+     "Camp are each a single flat number -- Winter Camp instead needs a per-participant lookup based on that kid's own grade, "
+     "so a family's total is the SUM of each registered kid's own tier, not one fee times a headcount. Scholarships and "
+     "withdrawals are both supported from day one, wired the same way as Tet Camp (Scholarships sheet / Withdrawals helper "
+     "sheet). Registration closes December 13, 2026. ONE PIECE IS STILL MISSING, same situation Tet Camp launched in: there "
+     "is no \"Winter Camp for payments\" registration sheet yet (Michal says she'll create it in the next few days) -- until "
+     "data/winter_camp_refresh.csv exists, the Winter Camp Roster tab and every Winter Camp family-matching lookup built from "
+     "it are correctly empty, not broken; nothing will show as registered (no false flags either) until that sheet exists and "
+     "a STEP-1-equivalent live pull is added here. Columns are ASSUMED to mirror Yom Tzofe/Tet Camp's own sheet (Participant "
+     "Name, Grade This Year, Registration Date, Email, Parent 1 Email, Emergency Contact - First/Last Name) -- confirm against "
+     "the real sheet once it exists and correct if it differs. The Authorize.net Invoice Description IS confirmed, not a "
+     "placeholder this time: \"Shevet Tapuach - Winter Camp 2026-27\", given directly by Michal.", "body"),
     ("Added Nov 3, 2026, per Michal: Yaniv Biran (kroitero94@gmail.com) is confirmed to be her own test account -- used to "
      "smoke-test the payment flow for a new event with a sub-$1 charge before it goes live to real families. Previously "
      "annotated with a one-off note on his $1.00 Annual transaction; now fully excluded upstream instead (see "
@@ -490,18 +504,45 @@ ws["B45"].alignment = Alignment(wrap_text=True)
 ws.merge_cells("B45:G46")
 ws.row_dimensions[45].height = 40
 
-ws["B49"] = "Sources"
-ws["B49"].font = SECTION_FONT
-ws["B50"] = "Annual pricing (sibling-discount tiers above): provided directly by Michal, Aug 21, 2026 -- supersedes the flat per-kid tiers in the original registration form, which didn't match observed payments."
-ws["B50"].font = BODY_FONT
-ws["B51"] = "Seminar pricing: Gmail -- \"Thanks for filling out this form: Camp/Event/Activity Registration Form\", submitted Aug 10, 2026."
-ws["B51"].font = BODY_FONT
-ws["B52"] = "Donation Add-on tiers: provided directly by Michal, Aug 21, 2026 (screenshot of the registration form's donation checkboxes)."
-ws["B52"].font = BODY_FONT
-ws["B53"] = "Yom Tzofe pricing ($95 flat fee, everyone, no grade restriction): provided directly by Michal, Oct 5, 2026. Scholarships for this event added later the same day."
-ws["B53"].font = BODY_FONT
-ws["B54"] = "Tet Camp pricing ($950 flat fee, 9th grade only): provided directly by Michal, Nov 3, 2026."
-ws["B54"].font = BODY_FONT
+ws["B48"] = "Winter Camp 2026-27 (added Nov 11, 2026, per Michal)"
+ws["B48"].font = SECTION_FONT
+ws.cell(row=49, column=2, value="Category").font = HEADER_FONT
+ws.cell(row=49, column=2).fill = HEADER_FILL
+ws.cell(row=49, column=3, value="Price").font = HEADER_FONT
+ws.cell(row=49, column=3).fill = HEADER_FILL
+style_header(ws, 49, 2, start_col=2)
+winter_camp_rows = [
+    ["Grades 3rd-9th (flat per participant, no sibling discount)", 405],
+    ["Grades 10th-12th (flat per participant, no sibling discount)", 320],
+]
+for i, row in enumerate(winter_camp_rows):
+    body_row(ws, 50+i, row, len(row), start_col=2)
+    ws.cell(row=50+i, column=3).number_format = CURRENCY
+ws["B52"] = ("Open to grades 3rd-12th; registration closes Dec 13, 2026. Grade-TIERED, not flat -- a family's total is the "
+             "sum of each registered kid's own tier (e.g. one 7th grader + one 11th grader = $405 + $320 = $725), not one "
+             "number times a headcount. Scholarships ARE supported from day one -- see the Scholarships tab. Registration "
+             "sheet (\"Winter Camp for payments\") doesn't exist yet as of Nov 11, 2026 -- Michal says she'll create it in "
+             "the next few days -- see Read Me -- so the Winter Camp Roster tab and all matching below are correctly empty "
+             "until it's created and wired up.")
+ws["B52"].font = SUB_FONT
+ws["B52"].alignment = Alignment(wrap_text=True)
+ws.merge_cells("B52:G53")
+ws.row_dimensions[52].height = 55
+
+ws["B56"] = "Sources"
+ws["B56"].font = SECTION_FONT
+ws["B57"] = "Annual pricing (sibling-discount tiers above): provided directly by Michal, Aug 21, 2026 -- supersedes the flat per-kid tiers in the original registration form, which didn't match observed payments."
+ws["B57"].font = BODY_FONT
+ws["B58"] = "Seminar pricing: Gmail -- \"Thanks for filling out this form: Camp/Event/Activity Registration Form\", submitted Aug 10, 2026."
+ws["B58"].font = BODY_FONT
+ws["B59"] = "Donation Add-on tiers: provided directly by Michal, Aug 21, 2026 (screenshot of the registration form's donation checkboxes)."
+ws["B59"].font = BODY_FONT
+ws["B60"] = "Yom Tzofe pricing ($95 flat fee, everyone, no grade restriction): provided directly by Michal, Oct 5, 2026. Scholarships for this event added later the same day."
+ws["B60"].font = BODY_FONT
+ws["B61"] = "Tet Camp pricing ($950 flat fee, 9th grade only): provided directly by Michal, Nov 3, 2026."
+ws["B61"].font = BODY_FONT
+ws["B62"] = "Winter Camp pricing ($405 grades 3rd-9th / $320 grades 10th-12th, grade-tiered, no sibling discount): provided directly by Michal, Nov 11, 2026."
+ws["B62"].font = BODY_FONT
 autofit(ws, [3, 34, 14, 12, 12, 12])
 ws.sheet_view.showGridLines = False
 
@@ -784,6 +825,114 @@ for trow in tetcamp_roster_rows:
             tetcamp_family_fee[_e] = _total
 
 # =========================================================================
+# SHEET 3e: Winter Camp Roster (snapshot) -- added Nov 11, 2026, per Michal: a new event, open to grades
+# 3rd-12th, with a GRADE-TIERED flat fee (no sibling discount) -- $405/participant for grades 3rd-9th,
+# $320/participant for grades 10th-12th. This is a DIFFERENT shape than every flat-fee event so far (Yom
+# Tzofe/Tet Camp are a single number) -- a family's total here is the SUM of each registered kid's own tier,
+# not one fee times a headcount, so this needs its own per-grade fee lookup (_winter_camp_fee_for_grade below)
+# rather than reusing the TET_CAMP_FEE-style single constant. Scholarships and withdrawals are both supported
+# from day one (per Michal), same as Tet Camp. Mirrors the Tet Camp Roster block above in every other way:
+# as of Nov 11, 2026 there is no live "Winter Camp for payments" registration sheet yet -- Michal says she'll
+# create one in the next few days, assumed to mirror Yom Tzofe/Tet Camp's own columns (Participant Name, Grade
+# This Year, Registration Date, Email, Parent 1 Email, Emergency Contact - First/Last Name) until confirmed
+# otherwise. Until data/winter_camp_refresh.csv exists (same optional-file pattern as tetcamp_refresh.csv
+# above), this tab and every Winter Camp family-matching structure built from it (email_to_winter_camp_kids,
+# winter_camp_family_fee, name_to_winter_camp_family_key below) are correctly EMPTY, not broken -- nothing will
+# show as registered for Winter Camp and no false "no roster match" flags will fire, since there's genuinely
+# nothing to match against yet. Once Michal creates that sheet and a STEP-1-equivalent live pull is added to the
+# daily refresh (writing data/winter_camp_refresh.csv), this whole tab and every downstream lookup starts
+# working with no further code changes needed here.
+# =========================================================================
+ws = wb.create_sheet("Winter Camp Roster")
+_WINTER_CAMP_CSV_PATH = os.path.join(DATA_DIR, "winter_camp_refresh.csv")
+if os.path.exists(_WINTER_CAMP_CSV_PATH):
+    with open(_WINTER_CAMP_CSV_PATH) as f:
+        reader = csv.DictReader(f)
+        winter_camp_roster_rows = list(reader)
+else:
+    winter_camp_roster_rows = []  # no live registration sheet yet -- see note above
+
+ws["A1"] = (f"Registrant snapshot -- from the \"Winter Camp for payments\" sheet (once it exists; see Read Me), a live "
+            f"IMPORTRANGE feed of the Winter Camp registration tab, pulled {TODAY_STR} (this report refreshes automatically "
+            f"every day). Fee is GRADE-TIERED (no sibling discount): $405/participant for grades 3rd-9th, $320/participant "
+            f"for grades 10th-12th -- see Price Reference. Open to grades 3rd-12th; registration closes Dec 13, 2026.")
+ws["A1"].font = SUB_FONT
+ws.merge_cells("A1:F1")
+ws.row_dimensions[1].height = 28
+
+headers = ["Participant Name", "Grade", "Fee", "Registration Date", "Email", "Parent 1 Email"]
+for i, h in enumerate(headers):
+    ws.cell(row=2, column=1+i, value=h)
+style_header(ws, 2, len(headers), start_col=1)
+
+WINTER_CAMP_FEE_LOWER = 405.0  # grades 3rd-9th, per participant -- confirmed by Michal, Nov 11, 2026
+WINTER_CAMP_FEE_UPPER = 320.0  # grades 10th-12th, per participant -- confirmed by Michal, Nov 11, 2026
+
+def _winter_camp_fee_for_grade(grade_str):
+    """Per-participant Winter Camp fee for a raw 'Grade This Year' value (e.g. '9th Grade', '11th Grade') --
+    $405 for grades 3-9, $320 for grades 10-12. Returns None if no leading grade number can be parsed, or if the
+    parsed grade falls outside the registered 3rd-12th range, so a family's total is never silently
+    miscalculated off a blank/unexpected value -- see where this is consumed below."""
+    m = re.match(r"\s*(\d+)", grade_str or "")
+    if not m:
+        return None
+    g = int(m.group(1))
+    if 3 <= g <= 9:
+        return WINTER_CAMP_FEE_LOWER
+    elif 10 <= g <= 12:
+        return WINTER_CAMP_FEE_UPPER
+    return None  # outside the registered grade range -- shouldn't happen, but don't guess
+
+for i, wrow in enumerate(winter_camp_roster_rows):
+    _wc_grade = wrow.get("Grade This Year", "")
+    _wc_fee = _winter_camp_fee_for_grade(_wc_grade)
+    vals = [wrow["Participant Name"], _wc_grade, _wc_fee if _wc_fee is not None else "?? (grade not recognized)",
+            wrow.get("Registration Date", ""), wrow.get("Email", ""), wrow.get("Parent 1 Email", "")]
+    body_row(ws, 3+i, vals, len(vals), start_col=1)
+    if isinstance(vals[2], (int, float)):
+        ws.cell(row=3+i, column=3).number_format = CURRENCY
+
+if not winter_camp_roster_rows:
+    ws.cell(row=3, column=1,
+            value="Nothing to show yet -- the \"Winter Camp for payments\" registration sheet doesn't exist yet. See Read Me.").font = SUB_FONT
+
+ws.freeze_panes = "A3"
+autofit(ws, [30, 11, 10, 18, 28, 28])
+ws.auto_filter.ref = f"A2:F{max(4+len(winter_camp_roster_rows), 3)}"
+print("winter camp roster rows written:", len(winter_camp_roster_rows))
+
+wb.save("/home/claude/tapuach_report/scaffold.xlsx")
+
+# Email -> matched Winter Camp registrants (name + grade), and per-family fee total -- unlike every prior
+# event's family-fee dict, this SUMS each kid's own tiered fee rather than multiplying a flat constant by
+# kid-count, since siblings in different grade bands owe different amounts (e.g. a 7th grader + an 11th grader
+# = $405 + $320 = $725, not $405 x 2 or $320 x 2).
+email_to_winter_camp_kids = defaultdict(list)
+_winter_camp_family_fee_sum = defaultdict(float)
+for wrow in winter_camp_roster_rows:
+    _key = (wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
+            or wrow.get("Email", "").strip().lower().replace("\\_", "_"))
+    _wc_grade = wrow.get("Grade This Year", "")
+    _wc_fee = _winter_camp_fee_for_grade(_wc_grade) or 0.0  # unrecognized grade contributes $0 rather than crashing --
+                                                              # shouldn't happen given registration is 3rd-12th only
+    for _e_raw in (wrow.get("Parent 1 Email", ""), wrow.get("Email", "")):
+        _e = _e_raw.strip().lower().replace("\\_", "_")
+        if _e:
+            email_to_winter_camp_kids[_e].append(wrow["Participant Name"] + " (" + _wc_grade + ")")
+    if _key:
+        _winter_camp_family_fee_sum[_key] += _wc_fee
+
+winter_camp_family_fee = {}
+for wrow in winter_camp_roster_rows:
+    _key = (wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
+            or wrow.get("Email", "").strip().lower().replace("\\_", "_"))
+    _total = _winter_camp_family_fee_sum.get(_key, 0.0)
+    for _e_raw in (wrow.get("Parent 1 Email", ""), wrow.get("Email", "")):
+        _e = _e_raw.strip().lower().replace("\\_", "_")
+        if _e:
+            winter_camp_family_fee[_e] = _total
+
+# =========================================================================
 # SHEET 4: Transactions
 # =========================================================================
 ANNUAL = "Shevet Tapuach - Annual Membership Payment Page 2026-27"
@@ -795,6 +944,9 @@ YOM_TZOFE = "Shevet Tapuach - Yom Tzofe 2026"
 # this constant if it doesn't match (until then, any Tet Camp receipt would silently fall through to STORE,
 # same as Yom Tzofe did before Oct 5, 2026 -- see Read Me).
 TET_CAMP = "Shevet Tapuach - Tet Camp 2026"
+# CONFIRMED -- added Nov 11, 2026, per Michal: unlike TET_CAMP above, this is NOT a guessed placeholder -- Michal
+# gave this exact string directly as the Authorize.net payment page Description for the new Winter Camp event.
+WINTER_CAMP = "Shevet Tapuach - Winter Camp 2026-27"
 STORE = "Tapuach Store (merchandise -- not a signup fee)"
 
 # Known test accounts -- confirmed by Michal, Nov 3, 2026: "Yaniv Biran" (kroitero94@gmail.com) is her own test
@@ -868,6 +1020,14 @@ for trow in tetcamp_roster_rows:
     if _child_key and _fam_email:
         child_name_to_tetcamp_family_email.setdefault(_child_key, _fam_email)
 
+child_name_to_winter_camp_family_email = {}
+for wrow in winter_camp_roster_rows:
+    _child_key = wrow["Participant Name"].strip().lower()
+    _fam_email = (wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
+                  or wrow.get("Email", "").strip().lower().replace("\\_", "_"))
+    if _child_key and _fam_email:
+        child_name_to_winter_camp_family_email.setdefault(_child_key, _fam_email)
+
 # Full transaction set. Originally rebuilt Aug 21, 2026 after discovering that an earlier pass had only captured
 # 18 of the ~81 real receipt emails (Gmail groups receipts into threads and a quick search only previews the ~5
 # oldest messages per thread -- the full thread had to be pulled explicitly to see everything). Staged as CSVs from
@@ -919,7 +1079,8 @@ for _r in _dedup_tx:
     _signup = (ANNUAL if ANNUAL in _desc else
                (SEMINAR if SEMINAR in _desc else
                 (YOM_TZOFE if YOM_TZOFE in _desc else
-                 (TET_CAMP if TET_CAMP in _desc else STORE))))
+                 (TET_CAMP if TET_CAMP in _desc else
+                  (WINTER_CAMP if WINTER_CAMP in _desc else STORE)))))
     _amount = float(_r["amount"])
     if _r["txtype"].strip() == "Credit":
         _amount = -_amount
@@ -973,6 +1134,8 @@ if os.path.exists(_VENMO_SIGNUPS_PATH):
             _v_signup = YOM_TZOFE
         elif "tet camp" in _event_key or "tetcamp" in _event_key:
             _v_signup = TET_CAMP
+        elif "winter camp" in _event_key or "wintercamp" in _event_key:
+            _v_signup = WINTER_CAMP
         else:
             _v_signup = STORE  # unrecognized event text -- flagged via the note below either way
         _child_key = _participant.lower()
@@ -984,15 +1147,19 @@ if os.path.exists(_VENMO_SIGNUPS_PATH):
             _v_email = child_name_to_yomtzofe_family_email.get(_child_key, "")
         elif _v_signup == TET_CAMP:
             _v_email = child_name_to_tetcamp_family_email.get(_child_key, "")
+        elif _v_signup == WINTER_CAMP:
+            _v_email = child_name_to_winter_camp_family_email.get(_child_key, "")
         else:
             _v_email = ""
         _v_txn_id = f"VENMO-{len(_venmo_parsed) + 1}"
         _note_bits = []
         if _v_signup == STORE:
             if ("annual" not in _event_key and "seminar" not in _event_key and "yom tzofe" not in _event_key
-                    and "yomtzofe" not in _event_key and "tet camp" not in _event_key and "tetcamp" not in _event_key):
+                    and "yomtzofe" not in _event_key and "tet camp" not in _event_key and "tetcamp" not in _event_key
+                    and "winter camp" not in _event_key and "wintercamp" not in _event_key):
                 _note_bits.append(f"Unrecognized event text (\"{_event_raw}\") on the Venmo signups sheet -- please "
-                                   f"confirm this is Annual, Seminar, Yom Tzofe, Tet Camp, or something else; treated as Store/other for now.")
+                                   f"confirm this is Annual, Seminar, Yom Tzofe, Tet Camp, Winter Camp, or something else; "
+                                   f"treated as Store/other for now.")
             # STORE rows are never roster-matched (same as Tapuach Store purchases from Authorize.net), so an empty
             # _v_email here doesn't mean a failed lookup -- don't also claim "no roster match" below.
         elif not _v_email:
@@ -1270,6 +1437,39 @@ for ec_nm, _fams in _tetcamp_ec_families.items():
     if len(_fams) == 1:
         name_to_tetcamp_family_key.setdefault(ec_nm, next(iter(_fams)))
 
+# name_to_winter_camp_family_key -- added Nov 11, 2026, per Michal: same exact two-pass construction as
+# name_to_tetcamp_family_key above (Winter Camp is assumed to mirror Yom Tzofe/Tet Camp's one-parent-email-column
+# registration-sheet shape until the real sheet exists and this can be confirmed). Currently a no-op (empty
+# dict) since winter_camp_roster_rows is empty until the "Winter Camp for payments" sheet exists -- see the
+# Winter Camp Roster section above -- but ready to start resolving real payer-name mismatches the moment that
+# sheet is live, with no further code changes needed.
+name_to_winter_camp_family_key = {}
+for wrow in winter_camp_roster_rows:
+    fam_email = (wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
+                 or wrow.get("Email", "").strip().lower().replace("\\_", "_"))
+    if not fam_email:
+        continue
+    nm = wrow.get("Parent 1 Contact Name", "").strip().lower()
+    if nm:
+        name_to_winter_camp_family_key.setdefault(nm, fam_email)
+    _annual_parents = _annual_child_parent_names.get(wrow["Participant Name"].strip().lower())
+    if _annual_parents:
+        for _p_nm in _annual_parents:
+            _p_nm = _p_nm.strip().lower()
+            if _p_nm:
+                name_to_winter_camp_family_key.setdefault(_p_nm, fam_email)
+_winter_camp_ec_families = defaultdict(set)  # emergency-contact name -> set of distinct family emails it's listed for
+for wrow in winter_camp_roster_rows:
+    fam_email = (wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
+                 or wrow.get("Email", "").strip().lower().replace("\\_", "_"))
+    ec_nm = (wrow.get("Emergency Contact - First Name", "").strip() + " "
+             + wrow.get("Emergency Contact - Last Name", "").strip()).strip().lower()
+    if fam_email and ec_nm:
+        _winter_camp_ec_families[ec_nm].add(fam_email)
+for ec_nm, _fams in _winter_camp_ec_families.items():
+    if len(_fams) == 1:
+        name_to_winter_camp_family_key.setdefault(ec_nm, next(iter(_fams)))
+
 def dedupe(seq):
     seen = set(); out = []
     for x in seq:
@@ -1307,6 +1507,8 @@ def _withdrawal_event_to_signup(event_raw):
         return YOM_TZOFE
     elif "tet camp" in event_raw or "tetcamp" in event_raw:
         return TET_CAMP
+    elif "winter camp" in event_raw or "wintercamp" in event_raw:
+        return WINTER_CAMP
     elif "seminar" in event_raw:
         return SEMINAR
     return ANNUAL  # "yearly"/"annual"/anything else -- the two explicit events are checked first
@@ -1358,6 +1560,8 @@ for (date, time, signup, amount, name, email, card, invoice, txn_id) in transact
             lookup = email_to_yomtzofe_kids
         elif signup == TET_CAMP:
             lookup = email_to_tetcamp_kids
+        elif signup == WINTER_CAMP:
+            lookup = email_to_winter_camp_kids
         else:
             lookup = email_to_kids
         lookup_key = email.lower()
@@ -1371,6 +1575,8 @@ for (date, time, signup, amount, name, email, card, invoice, txn_id) in transact
                 alias_map = name_to_yomtzofe_family_key
             elif signup == TET_CAMP:
                 alias_map = name_to_tetcamp_family_key
+            elif signup == WINTER_CAMP:
+                alias_map = name_to_winter_camp_family_key
             else:
                 alias_map = name_to_family_key
             alias_email = alias_map.get(_payer_name_key)
@@ -1983,8 +2189,8 @@ print("payout rows loaded:", len(payout_display_rows), "| in Authorize.net cover
 #      reconciliation -- Payments Hub's own report has no per-event breakdown, only daily aggregate batch/deposit
 #      totals, so this is the best available approximation of real bank dollars per event.
 # =========================================================================
-_EVENT_DISPLAY_PBE = {ANNUAL: "Annual Membership", SEMINAR: "Opening Seminar", YOM_TZOFE: "Yom Tzofe", TET_CAMP: "Tet Camp", STORE: "Tapuach Store"}
-_EVENT_ORDER_PBE = [ANNUAL, SEMINAR, YOM_TZOFE, TET_CAMP, STORE]
+_EVENT_DISPLAY_PBE = {ANNUAL: "Annual Membership", SEMINAR: "Opening Seminar", YOM_TZOFE: "Yom Tzofe", TET_CAMP: "Tet Camp", WINTER_CAMP: "Winter Camp", STORE: "Tapuach Store"}
+_EVENT_ORDER_PBE = [ANNUAL, SEMINAR, YOM_TZOFE, TET_CAMP, WINTER_CAMP, STORE]
 _PBE_SCOPE_START = _dt(2026, 8, 1).date()
 
 def _classify_desc_pbe(desc):
@@ -1997,6 +2203,8 @@ def _classify_desc_pbe(desc):
         return YOM_TZOFE
     if TET_CAMP in d:
         return TET_CAMP
+    if WINTER_CAMP in d:
+        return WINTER_CAMP
     return STORE
 
 # Settled $ per (event, settlement-month) from the Authorize.net report, Aug 2026 onward.
@@ -2088,15 +2296,16 @@ _pbe_summary = (
 ws["A1"] = _pbe_summary
 ws["A1"].font = SUB_FONT
 ws["A1"].alignment = Alignment(wrap_text=True, vertical="top")
-ws.merge_cells("A1:N1")
+ws.merge_cells("A1:P1")
 ws.row_dimensions[1].height = 110
 
 headers = ["Month", "Cumulative Settled -- Annual Membership", "Cumulative Settled -- Opening Seminar",
-           "Cumulative Settled -- Yom Tzofe", "Cumulative Settled -- Tet Camp", "Cumulative Settled -- Tapuach Store",
+           "Cumulative Settled -- Yom Tzofe", "Cumulative Settled -- Tet Camp", "Cumulative Settled -- Winter Camp",
+           "Cumulative Settled -- Tapuach Store",
            "Cumulative Settled -- Total (Authorize.net)",
            "Cumulative Actual Bank Payout (Payments Hub, net of refunds)", "Allocation Ratio (Payout / Settled)",
            "Est. Payout -- Annual Membership", "Est. Payout -- Opening Seminar", "Est. Payout -- Yom Tzofe",
-           "Est. Payout -- Tet Camp", "Est. Payout -- Tapuach Store"]
+           "Est. Payout -- Tet Camp", "Est. Payout -- Winter Camp", "Est. Payout -- Tapuach Store"]
 for i, h in enumerate(headers):
     ws.cell(row=2, column=1+i, value=h)
 style_header(ws, 2, len(headers), start_col=1)
@@ -2105,21 +2314,22 @@ for i, (_month_label, _cum_settled, _cum_settled_total, _cum_batch_val, _ratio, 
     rownum = 3 + i
     vals = [
         _month_label,
-        _cum_settled[ANNUAL], _cum_settled[SEMINAR], _cum_settled[YOM_TZOFE], _cum_settled[TET_CAMP], _cum_settled[STORE], _cum_settled_total,
+        _cum_settled[ANNUAL], _cum_settled[SEMINAR], _cum_settled[YOM_TZOFE], _cum_settled[TET_CAMP], _cum_settled[WINTER_CAMP], _cum_settled[STORE], _cum_settled_total,
         _cum_batch_val,
         _ratio if _ratio is not None else "--",
         _est[ANNUAL] if _est[ANNUAL] is not None else "--",
         _est[SEMINAR] if _est[SEMINAR] is not None else "--",
         _est[YOM_TZOFE] if _est[YOM_TZOFE] is not None else "--",
         _est[TET_CAMP] if _est[TET_CAMP] is not None else "--",
+        _est[WINTER_CAMP] if _est[WINTER_CAMP] is not None else "--",
         _est[STORE] if _est[STORE] is not None else "--",
     ]
     body_row(ws, rownum, vals, len(vals), start_col=1)
-    for col in (2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14):
+    for col in (2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16):
         c = ws.cell(row=rownum, column=col)
         if isinstance(c.value, (int, float)):
             c.number_format = CURRENCY
-    _rc = ws.cell(row=rownum, column=9)
+    _rc = ws.cell(row=rownum, column=10)
     if isinstance(_rc.value, (int, float)):
         _rc.number_format = '0.0%'
 
@@ -2130,7 +2340,7 @@ if not pbe_rows:
     last_row = 3
 
 ws.freeze_panes = "A3"
-ws.auto_filter.ref = f"A2:N{max(last_row, 2)}"
+ws.auto_filter.ref = f"A2:P{max(last_row, 2)}"
 
 # --- Month-over-month breakdown (added Sep 11, 2026, per Michal) --------------------------------------------
 # Same underlying event classification/scope as the cumulative table above, but TRANSPOSED (one column per
@@ -2155,6 +2365,7 @@ if pbe_rows:
         ("Opening Seminar", lambda _mk: _settled_by_event_month.get((SEMINAR, _mk), 0.0)),
         ("Yom Tzofe", lambda _mk: _settled_by_event_month.get((YOM_TZOFE, _mk), 0.0)),
         ("Tet Camp", lambda _mk: _settled_by_event_month.get((TET_CAMP, _mk), 0.0)),
+        ("Winter Camp", lambda _mk: _settled_by_event_month.get((WINTER_CAMP, _mk), 0.0)),
         ("Tapuach Store", lambda _mk: _settled_by_event_month.get((STORE, _mk), 0.0)),
         ("Total Settled", lambda _mk: sum(_settled_by_event_month.get((_e, _mk), 0.0) for _e in _EVENT_ORDER_PBE)),
         ("Total Actual Bank Payout", lambda _mk: _batch_by_month.get(_mk, 0.0)),
@@ -2308,6 +2519,13 @@ def tetcamp_note(email, paid_note_suffix=""):
     return (f"Tet Camp Roster confirms {', '.join(kids)} -- flat ${TET_CAMP_FEE:.0f}/participant totals "
             f"${total:.2f}.") + paid_note_suffix
 
+def winter_camp_note(email, paid_note_suffix=""):
+    key = email.lower()
+    kids = dedupe(email_to_winter_camp_kids.get(key, []))
+    total = winter_camp_family_fee.get(key)
+    return (f"Winter Camp Roster confirms {', '.join(kids)} -- grade-tiered fee (${WINTER_CAMP_FEE_LOWER:.0f} grades "
+            f"3rd-9th / ${WINTER_CAMP_FEE_UPPER:.0f} grades 10th-12th) totals ${total:.2f}.") + paid_note_suffix
+
 # =========================================================================
 # Scholarships -- read from the "Scholarships 2026-2027" Google Sheet (Michal, Aug 28, 2026): one row per
 # family + event, with either a % or a $ discount off the normal price (Type column says which). Families are
@@ -2371,6 +2589,15 @@ def _resolve_scholarship_family(name, event):
         if not email:
             return None, [], None
         return email, dedupe(email_to_tetcamp_kids.get(email, [])), tetcamp_family_fee.get(email)
+    elif event == WINTER_CAMP:
+        # Added Nov 11, 2026, per Michal -- Winter Camp scholarships work the same way, against the Winter Camp
+        # Roster/family-fee lookups (currently empty until the registration sheet exists -- see Read Me). The
+        # pre_total returned here (winter_camp_family_fee) is already the grade-tiered SUM of this family's
+        # kids' own fees, not a single flat number -- the scholarship discount below is applied on top of that.
+        email = name_to_winter_camp_family_key.get(name_key)
+        if not email:
+            return None, [], None
+        return email, dedupe(email_to_winter_camp_kids.get(email, [])), winter_camp_family_fee.get(email)
     else:
         email = name_to_seminar_family_key.get(name_key)
         if not email:
@@ -2394,6 +2621,10 @@ def _family_alias_emails(kids, event):
         # Added Nov 3, 2026, per Michal -- same one-parent-email-column shape as Yom Tzofe (currently empty
         # until the Tet Camp registration sheet exists -- see Read Me).
         rows, name_col, email_cols = tetcamp_roster_rows, "Participant Name", ("Parent 1 Email", "Email")
+    elif event == WINTER_CAMP:
+        # Added Nov 11, 2026, per Michal -- same one-parent-email-column shape as Yom Tzofe/Tet Camp (currently
+        # empty until the Winter Camp registration sheet exists -- see Read Me).
+        rows, name_col, email_cols = winter_camp_roster_rows, "Participant Name", ("Parent 1 Email", "Email")
     else:
         rows, name_col, email_cols = seminar_roster_rows, "Participant Name", ("Parent 1 Email", "Parent 2 Email")
     for r in rows:
@@ -2424,6 +2655,11 @@ for srow in scholarship_rows:
         event = YOM_TZOFE
     elif "tet camp" in _evt_raw or "tetcamp" in _evt_raw:
         event = TET_CAMP
+    elif "winter camp" in _evt_raw or "wintercamp" in _evt_raw:
+        # Added Nov 11, 2026, per Michal -- same fix needed again for a new ("Winter Camp") fifth section, should
+        # she add one to the Scholarships 2026-2027 sheet -- without this explicit check it would silently fall
+        # into the SEMINAR branch below, same risk Yom Tzofe and Tet Camp each had before their own check was added.
+        event = WINTER_CAMP
     else:
         event = SEMINAR
     disc_type = srow["Type"].strip().lower()
@@ -2437,7 +2673,7 @@ for srow in scholarship_rows:
             # skip this row entirely rather than implying a missing registration.
             continue
         # Oct 5, 2026: name the specific roster this event actually checks, now that there are three of them.
-        _roster_name = {ANNUAL: "Roster", SEMINAR: "Seminar Roster", YOM_TZOFE: "Yom Tzofe Roster", TET_CAMP: "Tet Camp Roster"}[event]
+        _roster_name = {ANNUAL: "Roster", SEMINAR: "Seminar Roster", YOM_TZOFE: "Yom Tzofe Roster", TET_CAMP: "Tet Camp Roster", WINTER_CAMP: "Winter Camp Roster"}[event]
         hint = SCHOLARSHIP_NAME_HINTS.get(name.lower(), f"No matching parent name found on the {_roster_name} for this event -- likely just hasn't registered a kid yet.")
         disc_label_unmatched = disc_raw if disc_raw else "(not entered)"
         scholarships.append({"name": name, "event": event, "disc_label": disc_label_unmatched, "kids": "", "n_kids": None,
@@ -2549,6 +2785,9 @@ def _resolve_withdrawal_family(parent_name, signup):
     elif signup == TET_CAMP:
         email = name_to_tetcamp_family_key.get(name_key)
         kids = dedupe(email_to_tetcamp_kids.get(email, [])) if email else []
+    elif signup == WINTER_CAMP:
+        email = name_to_winter_camp_family_key.get(name_key)
+        kids = dedupe(email_to_winter_camp_kids.get(email, [])) if email else []
     else:
         email = name_to_seminar_family_key.get(name_key)
         kids = dedupe(email_to_seminar_kids.get(email, [])) if email else []
@@ -2578,7 +2817,7 @@ def _find_matching_withdrawal_credits(email, signup, w_date):
             out.append(row)
     return out
 
-_ROSTER_LABEL = {ANNUAL: "Roster", SEMINAR: "Seminar Roster", YOM_TZOFE: "Yom Tzofe Roster", TET_CAMP: "Tet Camp Roster"}
+_ROSTER_LABEL = {ANNUAL: "Roster", SEMINAR: "Seminar Roster", YOM_TZOFE: "Yom Tzofe Roster", TET_CAMP: "Tet Camp Roster", WINTER_CAMP: "Winter Camp Roster"}
 
 # Pass 1 -- parse every raw row once and resolve its family, so rows can be grouped by (email, signup) before
 # any credit-matching happens. The grouping matters because a family can log MORE THAN ONE withdrawing
@@ -2850,10 +3089,14 @@ for row in tx_rows:
         exp = yomtzofe_family_fee.get(lookup_email)
         expected_map[key] = ((exp, yomtzofe_note(lookup_email)) if exp else
                               (None, "No matching entry on the Yom Tzofe Roster tab for this email -- please confirm the agreed total."))
-    else:  # TET_CAMP
+    elif signup == TET_CAMP:
         exp = tetcamp_family_fee.get(lookup_email)
         expected_map[key] = ((exp, tetcamp_note(lookup_email)) if exp else
                               (None, "No matching entry on the Tet Camp Roster tab for this email -- please confirm the agreed total."))
+    else:  # WINTER_CAMP
+        exp = winter_camp_family_fee.get(lookup_email)
+        expected_map[key] = ((exp, winter_camp_note(lookup_email)) if exp else
+                              (None, "No matching entry on the Winter Camp Roster tab for this email -- please confirm the agreed total."))
 
 # BUILD_DATE is set once at the top of the script (see above) -- reused here for the "how long has this been
 # unpaid" check below.
@@ -3016,6 +3259,62 @@ for trow in tetcamp_roster_rows:
     expected_map[(key, TET_CAMP)] = (exp, note)
     n_no_payment_tetcamp += 1
 print("tet camp signups added with no payment yet:", n_no_payment_tetcamp)
+
+# Same "registered but not yet paid" backfill, for Winter Camp -- added Nov 11, 2026. Identical shape to the
+# Tet Camp version just above (one parent-email column, falling back to the registrant's own Email) -- the only
+# difference is the fee lookup itself (winter_camp_family_fee, grade-tiered) rather than a flat per-kid
+# constant, which is already handled transparently since winter_camp_family_fee is keyed by email exactly like
+# tetcamp_family_fee. Currently a no-op (winter_camp_roster_rows is empty) until the "Winter Camp for payments"
+# sheet exists -- see Read Me -- but ready to start working the moment it does, with no further code changes
+# needed.
+_winter_camp_family_earliest_reg = {}
+for wrow in winter_camp_roster_rows:
+    key = (wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
+           or wrow.get("Email", "").strip().lower().replace("\\_", "_"))
+    if not key:
+        continue
+    try:
+        reg_dt = datetime.strptime(wrow["Registration Date"], "%Y-%m-%d %H:%M")
+    except (ValueError, KeyError):
+        continue
+    if key not in _winter_camp_family_earliest_reg or reg_dt < _winter_camp_family_earliest_reg[key]:
+        _winter_camp_family_earliest_reg[key] = reg_dt
+
+n_no_payment_winter_camp = 0
+seen_winter_camp_family = set()
+for wrow in winter_camp_roster_rows:
+    p1 = wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
+    pe = wrow.get("Email", "").strip().lower().replace("\\_", "_")
+    key = p1 or pe
+    if not key or key in seen_winter_camp_family:
+        continue
+    seen_winter_camp_family.add(key)
+    # A payment may have come in under either the parent's email or the registrant's own email -- check both
+    # before treating this family as unpaid (same idea as the Tet Camp loop above).
+    if (key, WINTER_CAMP) in seen or (p1 and (p1, WINTER_CAMP) in seen) or (pe and (pe, WINTER_CAMP) in seen):
+        continue  # already has at least one payment logged
+    seen.add((key, WINTER_CAMP))
+    kids = dedupe(email_to_winter_camp_kids.get(key, []))
+    payer_name = wrow.get("Parent 1 Contact Name") or wrow["Participant Name"]
+    combos.append({"name": payer_name, "email": key, "signup": WINTER_CAMP, "matched": "; ".join(kids)})
+    reg_dt = _winter_camp_family_earliest_reg.get(key)
+    hours_ago = (BUILD_DATE - reg_dt).total_seconds() / 3600 if reg_dt else None
+    if hours_ago is not None and hours_ago <= 24:
+        recency = (f"Registered {reg_dt:%b %d, %I:%M %p} -- only {hours_ago:.0f} hours ago, so this may just be the normal "
+                   f"overnight gap before payment processes, not a real non-payment.")
+    elif reg_dt:
+        recency = f"Registered {reg_dt:%b %d, %I:%M %p} -- {hours_ago/24:.1f} days ago with nothing paid, so probably worth a nudge."
+    else:
+        recency = "Registration date unavailable."
+    if (key, WINTER_CAMP) in scholarship_expected:
+        exp, sch_note = scholarship_expected[(key, WINTER_CAMP)]
+        note = f"{sch_note} No payment logged yet. {recency}"
+    else:
+        exp = winter_camp_family_fee.get(key)
+        note = f"Registered on the Winter Camp Roster ({'; '.join(kids)}, ${exp:.2f}) but no payment logged yet. {recency}"
+    expected_map[(key, WINTER_CAMP)] = (exp, note)
+    n_no_payment_winter_camp += 1
+print("winter camp signups added with no payment yet:", n_no_payment_winter_camp)
 
 # Backfill Annual rows for scholarship families that haven't made any Annual payment yet -- same idea as the
 # Seminar "not yet paid" loop above, but scoped to scholarship families only (Bug found Aug 28, 2026: Lilach Vos
@@ -3216,12 +3515,12 @@ for i, h in enumerate(headers):
     ws.cell(row=2, column=1+i, value=h)
 style_header(ws, 2, len(headers), start_col=1)
 
-EVENT_LABEL = {ANNUAL: "Annual Membership", SEMINAR: "Opening Seminar", YOM_TZOFE: "Yom Tzofe", TET_CAMP: "Tet Camp", STORE: "Tapuach Store checkout"}
+EVENT_LABEL = {ANNUAL: "Annual Membership", SEMINAR: "Opening Seminar", YOM_TZOFE: "Yom Tzofe", TET_CAMP: "Tet Camp", WINTER_CAMP: "Winter Camp", STORE: "Tapuach Store checkout"}
 
 # Sort each event section so registered/utilized families are grouped together first, with anything carrying a
 # Notes comment (not yet registered, price unclear) pushed to the end of that section (Michal, Aug 28, 2026) --
 # a stable sort, so the original relative order within each of those two groups is otherwise unchanged.
-_event_order = {ANNUAL: 0, SEMINAR: 1, YOM_TZOFE: 2, TET_CAMP: 3}
+_event_order = {ANNUAL: 0, SEMINAR: 1, YOM_TZOFE: 2, TET_CAMP: 3, WINTER_CAMP: 4}
 scholarships.sort(key=lambda s: (_event_order[s["event"]], s["status"] != "Registered"))
 
 for i, s in enumerate(scholarships):
@@ -3244,7 +3543,7 @@ ws.auto_filter.ref = f"A2:I{last_data_row}"
 trow = last_data_row + 2
 ws.cell(row=trow, column=1, value="Totals").font = SECTION_FONT
 trow += 1
-for event in (ANNUAL, SEMINAR, YOM_TZOFE, TET_CAMP):
+for event in (ANNUAL, SEMINAR, YOM_TZOFE, TET_CAMP, WINTER_CAMP):
     matched = [s for s in scholarships if s["event"] == event and s["status"] == "Registered"]
     n_fam = len(matched)
     n_kids = sum(s["n_kids"] for s in matched)
@@ -3529,30 +3828,34 @@ stat_box(ws, 28, "Tet Camp -- collected so far (original)",
          f'=SUMIF(Transactions!$C$3:$C${TX_LAST_ROW},"{TET_CAMP}",Transactions!$D$3:$D${TX_LAST_ROW})', CURRENCY)
 stat_box(ws, 29, "Tet Camp -- after fee",
          f'=SUMIF(Transactions!$C$3:$C${TX_LAST_ROW},"{TET_CAMP}",Transactions!$P$3:$P${TX_LAST_ROW})', CURRENCY)
-stat_box(ws, 30, "Tapuach Store -- collected so far (see Store Purchases tab, original)",
+stat_box(ws, 30, "Winter Camp -- collected so far (original)",
+         f'=SUMIF(Transactions!$C$3:$C${TX_LAST_ROW},"{WINTER_CAMP}",Transactions!$D$3:$D${TX_LAST_ROW})', CURRENCY)
+stat_box(ws, 31, "Winter Camp -- after fee",
+         f'=SUMIF(Transactions!$C$3:$C${TX_LAST_ROW},"{WINTER_CAMP}",Transactions!$P$3:$P${TX_LAST_ROW})', CURRENCY)
+stat_box(ws, 32, "Tapuach Store -- collected so far (see Store Purchases tab, original)",
          f'=SUMIF(Transactions!$C$3:$C${TX_LAST_ROW},"{STORE}",Transactions!$D$3:$D${TX_LAST_ROW})', CURRENCY)
-stat_box(ws, 31, "Tapuach Store -- after fee",
+stat_box(ws, 33, "Tapuach Store -- after fee",
          f'=SUMIF(Transactions!$C$3:$C${TX_LAST_ROW},"{STORE}",Transactions!$P$3:$P${TX_LAST_ROW})', CURRENCY)
 
-# Added Oct 15, 2026, per Michal ("can you add the refunds to the dashboard"). Row 34 is the authoritative total --
+# Added Oct 15, 2026, per Michal ("can you add the refunds to the dashboard"). Row 36 is the authoritative total --
 # every Authorize.net Credit (refund) transaction is logged on the Transactions tab as a negative Amount (see
 # Transactions-sheet build above), so summing the negative side of column D and flipping the sign gives the true
-# total refunded to date regardless of whether it's been matched to a specific logged withdrawal yet. Row 35 is a
+# total refunded to date regardless of whether it's been matched to a specific logged withdrawal yet. Row 37 is a
 # narrower cross-check: it sums the Withdrawals tab's own "Refund Amount" column (H) over WITHDRAWALS_LAST_ROW, i.e.
-# only withdrawals Michal has actually logged with a confirmed Authorize.net credit -- it can be smaller than row 34
-# if a refund was issued but hasn't been logged as a withdrawal yet (or larger would indicate a data problem). Row 36
+# only withdrawals Michal has actually logged with a confirmed Authorize.net credit -- it can be smaller than row 36
+# if a refund was issued but hasn't been logged as a withdrawal yet (or larger would indicate a data problem). Row 38
 # is just a count, for a quick sense of volume. (Rows shifted +2 on Nov 3, 2026 to make room for the new Tet Camp
-# stat boxes above.)
-ws["B33"] = "Refunds (Authorize.net credits)"
-ws["B33"].font = SECTION_FONT
-stat_box(ws, 34, "Total refunded to date (all Authorize.net credits on Transactions)",
+# stat boxes above, and +2 again on Nov 11, 2026 for the new Winter Camp stat boxes.)
+ws["B35"] = "Refunds (Authorize.net credits)"
+ws["B35"].font = SECTION_FONT
+stat_box(ws, 36, "Total refunded to date (all Authorize.net credits on Transactions)",
          f'=-SUMIF(Transactions!$D$3:$D${TX_LAST_ROW},"<0")', CURRENCY)
-stat_box(ws, 35, "Of which, confirmed via a logged withdrawal (see Withdrawals tab)",
+stat_box(ws, 37, "Of which, confirmed via a logged withdrawal (see Withdrawals tab)",
          f'=SUM(Withdrawals!$H$3:$H${WITHDRAWALS_LAST_ROW})', CURRENCY)
-stat_box(ws, 36, "Refund (credit) transactions logged",
+stat_box(ws, 38, "Refund (credit) transactions logged",
          f'=COUNTIF(Transactions!$D$3:$D${TX_LAST_ROW},"<0")', "0")
 
-ws["B38"] = ("Note: the $1.00 verification charge from Aug 10 is included in \"Total collected\" (it's negligible) but excluded from "
+ws["B40"] = ("Note: the $1.00 verification charge from Aug 10 is included in \"Total collected\" (it's negligible) but excluded from "
              "the by-signup-type totals' underlying pricing assumptions. \"Total collected\" and the by-signup-type totals include "
              "Donation Add-ons; Signups' Total Paid and this Dashboard's Total expected/outstanding do not. Tapuach Store purchases are "
              "included in \"Total collected\" but not in Total expected/outstanding, since they're not a signup fee. \"Not yet paid\" "
@@ -3564,16 +3867,16 @@ ws["B38"] = ("Note: the $1.00 verification charge from Aug 10 is included in \"T
              "reason the Payouts and Payout by Event tabs now subtract that day's refunds from Payments Hub's gross \"Total Batch "
              "Volume\" before comparing it to Authorize.net's settled totals, which are already net of refunds -- see those tabs' own "
              "notes. See Read Me for details.")
-ws["B38"].font = SUB_FONT
-ws["B38"].alignment = Alignment(wrap_text=True)
-ws.merge_cells("B38:F41")
-ws.row_dimensions[38].height = 110
+ws["B40"].font = SUB_FONT
+ws["B40"].alignment = Alignment(wrap_text=True)
+ws.merge_cells("B40:F43")
+ws.row_dimensions[40].height = 110
 
 autofit(ws, [3, 55, 3, 3, 16])
 ws.sheet_view.showGridLines = False
 
 # Reorder sheets: Read Me, Dashboard, Signups, Transactions, Roster, Price Reference
-order = ["Read Me", "Dashboard", "Signups", "Scholarships", "Withdrawals", "Donations", "Store Purchases", "Transactions", "Reconciliation", "Payouts", "Payout by Event", "Venmo", "Roster", "Seminar Roster", "Yom Tzofe Roster", "Tet Camp Roster", "Price Reference"]
+order = ["Read Me", "Dashboard", "Signups", "Scholarships", "Withdrawals", "Donations", "Store Purchases", "Transactions", "Reconciliation", "Payouts", "Payout by Event", "Venmo", "Roster", "Seminar Roster", "Yom Tzofe Roster", "Tet Camp Roster", "Winter Camp Roster", "Price Reference"]
 wb._sheets = [wb[name] for name in order]
 wb.active = 0
 
