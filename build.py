@@ -496,7 +496,7 @@ ws.cell(row=43, column=2).fill = HEADER_FILL
 ws.cell(row=43, column=3, value="Price").font = HEADER_FONT
 ws.cell(row=43, column=3).fill = HEADER_FILL
 style_header(ws, 43, 2, start_col=2)
-body_row(ws, 44, ["9th grade only (flat fee, no sibling discount)", 950], 2, start_col=2)
+body_row(ws, 44, ["9th grade only (flat fee, no sibling discount)", 900], 2, start_col=2)  # corrected Nov 17, 2026, was 950
 ws.cell(row=44, column=3).number_format = CURRENCY
 ws["B45"] = ("Restricted to 9th grade (per Michal) -- informational only, this build doesn't block/flag a non-9th-grader signing "
              "up. Scholarships ARE supported from day one -- see the Scholarships tab. Registration sheet (\"Tet Camp for "
@@ -542,7 +542,9 @@ ws["B59"] = "Donation Add-on tiers: provided directly by Michal, Aug 21, 2026 (s
 ws["B59"].font = BODY_FONT
 ws["B60"] = "Yom Tzofe pricing ($95 flat fee, everyone, no grade restriction): provided directly by Michal, Oct 5, 2026. Scholarships for this event added later the same day."
 ws["B60"].font = BODY_FONT
-ws["B61"] = "Tet Camp pricing ($950 flat fee, 9th grade only): provided directly by Michal, Nov 3, 2026."
+ws["B61"] = ("Tet Camp pricing ($900 flat fee, 9th grade only): corrected Nov 17, 2026, per Michal -- the original "
+             "$950 figure given Nov 3, 2026 was wrong; both real receipts seen so far (and the roster's own "
+             "Participant Fee column) confirm $900.")
 ws["B61"].font = BODY_FONT
 ws["B62"] = "Winter Camp pricing ($405 grades 3rd-9th / $320 grades 10th-12th, grade-tiered, no sibling discount): provided directly by Michal, Nov 11, 2026."
 ws["B62"].font = BODY_FONT
@@ -775,7 +777,7 @@ else:
 
 ws["A1"] = (f"Registrant snapshot -- from the \"Tet Camp for payments\" sheet (once it exists; see Read Me), a live "
             f"IMPORTRANGE feed of the Tet Camp registration tab, pulled {TODAY_STR} (this report refreshes automatically every "
-            f"day). Flat fee is $950/participant (no sibling discount), restricted to 9th grade only -- see Price Reference.")
+            f"day). Flat fee is $900/participant (no sibling discount), restricted to 9th grade only -- see Price Reference.")
 ws["A1"].font = SUB_FONT
 ws.merge_cells("A1:F1")
 ws.row_dimensions[1].height = 28
@@ -785,7 +787,13 @@ for i, h in enumerate(headers):
     ws.cell(row=2, column=1+i, value=h)
 style_header(ws, 2, len(headers), start_col=1)
 
-TET_CAMP_FEE = 950.0  # flat per-participant fee, 9th grade only -- confirmed by Michal, Nov 3, 2026
+# CORRECTED -- Nov 17, 2026, per Michal. The original $950 "confirmed by Michal, Nov 3, 2026" below turned out to
+# be wrong, the same category of mistake as the TET_CAMP invoice-description placeholder fixed the same day: the
+# roster's own Participant Fee column and BOTH real full-payment Tet Camp receipts seen so far (Ela Gdalyahu/
+# Fishler family, txn 81907000798, Nov 11; Joel Schmidt family, txn 81908971831, Nov 12) are $900.00, not $950.00
+# -- confirmed by Michal against this concrete evidence. If a future receipt ever comes in at $950 instead,
+# that's worth flagging immediately rather than assumed as a second full payment.
+TET_CAMP_FEE = 900.0  # flat per-participant fee, 9th grade only -- corrected Nov 17, 2026, per Michal (was $950)
 
 for i, trow in enumerate(tetcamp_roster_rows):
     vals = [trow["Participant Name"], trow.get("Grade This Year", ""), TET_CAMP_FEE, trow.get("Registration Date", ""),
@@ -804,7 +812,7 @@ print("tet camp roster rows written:", len(tetcamp_roster_rows))
 
 wb.save("/home/claude/tapuach_report/scaffold.xlsx")
 
-# Email -> matched Tet Camp registrants (name + grade), and per-family flat-fee total ($950 x however many
+# Email -> matched Tet Camp registrants (name + grade), and per-family flat-fee total ($900 x however many
 # participants share that family's canonical key) -- same shape as the Yom Tzofe equivalent above.
 email_to_tetcamp_kids = defaultdict(list)
 _tetcamp_family_kids_count = defaultdict(int)
