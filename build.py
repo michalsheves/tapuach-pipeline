@@ -659,6 +659,25 @@ def _decompose_seminar_fee(total, n_kids):
             return total - tier, float(tier)
     return total, 0.0  # doesn't decompose cleanly -- leave the roster figure as-is, no donation assumed
 
+def _decompose_tiered_fee(raw, expected):
+    """(base, donation_amt) for a roster-sheet fee total against its known expected (flat or tiered)
+    per-participant price -- generalizes _decompose_seminar_fee above to any other event's roster (added Nov
+    17, 2026, per Michal, after she spotted Conde/Rafael's Winter Camp Roster fee ($345) was really the correct
+    $320 11th-grade tier plus a $25 voluntary donation folded into one number, the same pattern Seminar's
+    roster has had since Aug 28, 2026 -- this just wasn't wired up for other events yet. Wired into Winter Camp
+    the same day, then Tet Camp right after, at Michal's request. donation_amt is 0 if `raw` already equals
+    `expected` or doesn't decompose cleanly against a known Donation Add-on tier (left as-is, no donation
+    assumed, rather than guessing)."""
+    if expected is None:
+        return raw, 0.0
+    diff = round(raw - expected, 2)
+    if diff == 0:
+        return expected, 0.0
+    for tier in DONATION_TIERS:
+        if abs(diff - tier) < 0.01:
+            return expected, float(tier)
+    return raw, 0.0  # doesn't decompose cleanly -- leave as-is, no donation assumed
+
 _seminar_family_decomp = {key: _decompose_seminar_fee(total, _seminar_family_kids_count[key])
                            for key, total in _seminar_family_totals.items()}
 
@@ -814,26 +833,55 @@ wb.save("/home/claude/tapuach_report/scaffold.xlsx")
 
 # Email -> matched Tet Camp registrants (name + grade), and per-family flat-fee total ($900 x however many
 # participants share that family's canonical key) -- same shape as the Yom Tzofe equivalent above.
+#
+# Also decomposes each participant's own roster-sheet "Participant Fee" against the flat TET_CAMP_FEE (added
+# Nov 17, 2026, per Michal, same day as the Winter Camp donation fix and the $950->$900 fee correction above --
+# she asked for the same donation-decomposition to be extended here too, using the shared _decompose_tiered_fee
+# helper defined up near _decompose_seminar_fee above). No live case exists as of Nov 17,
+# 2026 (all 3 current registrants show a clean $900, no donation folded in), but this makes Tet Camp ready the
+# same way Winter Camp now is, instead of a future embedded donation here silently showing as an unexplained
+# fee mismatch. tetcamp_family_fee below is set to the real flat-fee total (excluding any donation); the
+# donation itself is auto-logged on the Transactions tab once the family has any Tet Camp payment -- see the
+# donation auto-detection block after the Transactions loop, same mechanism as seminar_family_donation/
+# winter_camp_family_donation.
 email_to_tetcamp_kids = defaultdict(list)
 _tetcamp_family_kids_count = defaultdict(int)
+_tetcamp_family_raw_sum = defaultdict(float)
+_tetcamp_family_donation_sum = defaultdict(float)
 for trow in tetcamp_roster_rows:
     _key = (trow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
             or trow.get("Email", "").strip().lower().replace("\\_", "_"))
+    try:
+        _tc_raw = float((trow.get("Participant Fee", "") or "0").replace("$", "").replace(",", ""))
+    except ValueError:
+        _tc_raw = TET_CAMP_FEE  # unparsable -- treat as no donation rather than guessing
     for _e_raw in (trow.get("Parent 1 Email", ""), trow.get("Email", "")):
         _e = _e_raw.strip().lower().replace("\\_", "_")
         if _e:
             email_to_tetcamp_kids[_e].append(trow["Participant Name"] + " (" + trow.get("Grade This Year", "") + ")")
     _tetcamp_family_kids_count[_key] += 1
+    if _key:
+        _tetcamp_family_raw_sum[_key] += _tc_raw
 
 tetcamp_family_fee = {}
+tetcamp_family_donation = {}  # email -> (donation_amt, base_total, raw_total) for embedded-donation families
 for trow in tetcamp_roster_rows:
     _key = (trow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
             or trow.get("Email", "").strip().lower().replace("\\_", "_"))
     _total = TET_CAMP_FEE * _tetcamp_family_kids_count.get(_key, 0)
+    _raw_total = _tetcamp_family_raw_sum.get(_key, 0.0)
     for _e_raw in (trow.get("Parent 1 Email", ""), trow.get("Email", "")):
         _e = _e_raw.strip().lower().replace("\\_", "_")
         if _e:
             tetcamp_family_fee[_e] = _total
+    # Decompose once per family (not per participant row -- the family's flat-fee TOTAL vs. the family's raw
+    # roster-fee TOTAL), since a donation is added once per order, not necessarily on a specific child's row.
+    _tc_base, _tc_donation = _decompose_tiered_fee(_raw_total, _total)
+    if _tc_donation:
+        for _e_raw in (trow.get("Parent 1 Email", ""), trow.get("Email", "")):
+            _e = _e_raw.strip().lower().replace("\\_", "_")
+            if _e:
+                tetcamp_family_donation[_e] = (_tc_donation, _total, _raw_total)
 
 # =========================================================================
 # SHEET 3e: Winter Camp Roster (snapshot) -- added Nov 11, 2026, per Michal: a new event, open to grades
@@ -893,24 +941,6 @@ def _winter_camp_fee_for_grade(grade_str):
     elif 10 <= g <= 12:
         return WINTER_CAMP_FEE_UPPER
     return None  # outside the registered grade range -- shouldn't happen, but don't guess
-
-def _decompose_tiered_fee(raw, expected):
-    """(base, donation_amt) for a single participant's roster-sheet fee against their known per-participant
-    price -- generalizes _decompose_seminar_fee above to any flat/tiered per-participant event (added Nov 17,
-    2026, per Michal, after she spotted Conde/Rafael's Winter Camp Roster fee ($345) was really the correct
-    $320 11th-grade tier plus a $25 voluntary donation folded into one number, the same pattern Seminar's roster
-    has had since Aug 28, 2026 -- this just wasn't wired up for Winter Camp yet. donation_amt is 0 if `raw`
-    already equals `expected` or doesn't decompose cleanly against a known Donation Add-on tier (left as-is,
-    no donation assumed, rather than guessing)."""
-    if expected is None:
-        return raw, 0.0
-    diff = round(raw - expected, 2)
-    if diff == 0:
-        return expected, 0.0
-    for tier in DONATION_TIERS:
-        if abs(diff - tier) < 0.01:
-            return expected, float(tier)
-    return raw, 0.0
 
 for i, wrow in enumerate(winter_camp_roster_rows):
     _wc_grade = wrow.get("Grade This Year", "")
@@ -1731,8 +1761,36 @@ for _key, _pays in _winter_camp_pay_by_family.items():
     donation_notes[_latest_txn_id] = ((donation_notes[_latest_txn_id] + " " + _wc_dnote)
                                        if donation_notes.get(_latest_txn_id) else _wc_dnote)
 
+# Auto-detect and log Donation Add-ons for the embedded-donation Tet Camp families found above
+# (tetcamp_family_donation) -- added Nov 17, 2026, per Michal, same mechanism as the Seminar/Winter Camp blocks
+# above. No live case exists yet (all 3 current Tet Camp registrants show a clean $900), but this makes Tet
+# Camp ready the same way, instead of a future embedded donation here going undetected.
+_tetcamp_pay_by_family = defaultdict(list)  # lookup key -> [(datetime, txn_id, amount), ...]
+for _d, _row in _parsed_tx:
+    _txn_id = _row[8]
+    if _row[2] != TET_CAMP:
+        continue
+    _lookup_key = resolved_email.get(_txn_id, _row[5])
+    if _lookup_key in tetcamp_family_donation:
+        _tetcamp_pay_by_family[_lookup_key].append((_d, _txn_id, _row[3]))
+
+for _key, _pays in _tetcamp_pay_by_family.items():
+    _donation_amt, _base_total, _raw_total = tetcamp_family_donation[_key]
+    _pays.sort(key=lambda p: p[0])
+    _running = sum(_amt for _d_unused, _txn_id_unused, _amt in _pays)
+    _latest_txn_id = _pays[-1][1]
+    donations_map[_latest_txn_id] = donations_map.get(_latest_txn_id, 0.0) + _donation_amt
+    _progress = ("fully paid" if _running >= _base_total
+                 else f"${_running:.2f} of the ${_base_total:.2f} base paid so far, still mid-installment-plan")
+    _tc_dnote = (
+        f"Auto-detected Donation Add-on: this family's Tet Camp Roster Participant Fee(s) (${_raw_total:.2f}) "
+        f"bake in a ${_donation_amt:.0f} voluntary donation on top of the real ${_base_total:.2f} flat fee "
+        f"(see Read Me). Logged here regardless of remaining installments ({_progress}).")
+    donation_notes[_latest_txn_id] = ((donation_notes[_latest_txn_id] + " " + _tc_dnote)
+                                       if donation_notes.get(_latest_txn_id) else _tc_dnote)
+
 # Merge in the storefront's "$X Donation" line items detected above (Michal, Sep 4, 2026) -- same mechanism as the
-# embedded-Seminar/Winter-Camp donations just above: populates the Transactions "Donation Add-on" column and
+# embedded-Seminar/Winter-Camp/Tet-Camp donations just above: populates the Transactions "Donation Add-on" column and
 # flows straight onto the Donations tab.
 for _store_txn_id, _store_donation_amt in store_order_donations.items():
     donations_map[_store_txn_id] = donations_map.get(_store_txn_id, 0.0) + _store_donation_amt
