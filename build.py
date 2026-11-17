@@ -7,6 +7,9 @@ from collections import defaultdict
 import csv
 import glob
 import os
+import re  # moved up here Nov 17, 2026 -- the Winter Camp Roster section (below, before the original "import re"
+           # further down) needs re.match for _winter_camp_fee_for_grade; the later "import re" is now a harmless
+           # no-op re-import, left in place rather than removed to keep this diff minimal.
 
 # All source CSVs (roster/seminar/scholarship snapshots, staged Gmail receipt threads) live here rather than in
 # /tmp, since /tmp isn't guaranteed to survive between the daily scheduled refreshes (Aug 28, 2026 -- set up for
@@ -938,12 +941,15 @@ for wrow in winter_camp_roster_rows:
 ANNUAL = "Shevet Tapuach - Annual Membership Payment Page 2026-27"
 SEMINAR = "Shevet Tapuach - Opening Seminar 2026-27"
 YOM_TZOFE = "Shevet Tapuach - Yom Tzofe 2026"
-# PLACEHOLDER -- added Nov 3, 2026, per Michal's request to add Tet Camp support, but no real receipt has ever
-# carried this string. Guessed from the Annual/Seminar/Yom Tzofe naming pattern -- confirm it against the actual
-# Authorize.net Invoice Description on Tet Camp's first real receipt once the payment page exists, and correct
-# this constant if it doesn't match (until then, any Tet Camp receipt would silently fall through to STORE,
-# same as Yom Tzofe did before Oct 5, 2026 -- see Read Me).
-TET_CAMP = "Shevet Tapuach - Tet Camp 2026"
+# CONFIRMED -- corrected Nov 17, 2026, per Michal, from the first real Tet Camp receipt (Ela Gdalyahu, $900,
+# txn 81907000798, Nov 11, 2026): the real Authorize.net Invoice Description is "Tapuach - Tet Camp 2026-27" --
+# NO "Shevet" prefix (unlike every other event) and a "-27" suffix, neither of which the original guessed
+# placeholder ("Shevet Tapuach - Tet Camp 2026") had. That mismatch sent this and every other real Tet Camp
+# receipt silently to Tapuach Store instead -- exactly the failure mode the placeholder's own prior comment
+# warned about. Any transaction already misclassified as Store under the old placeholder will reclassify as
+# Tet Camp automatically on this and future runs, no backfill needed (the Transactions tab is rebuilt fresh
+# from source data every time).
+TET_CAMP = "Tapuach - Tet Camp 2026-27"
 # CONFIRMED -- added Nov 11, 2026, per Michal: unlike TET_CAMP above, this is NOT a guessed placeholder -- Michal
 # gave this exact string directly as the Authorize.net payment page Description for the new Winter Camp event.
 WINTER_CAMP = "Shevet Tapuach - Winter Camp 2026-27"
@@ -2760,9 +2766,21 @@ def _participant_name_matches(participant_name, kid_label):
 # need it. Their Signups combo row still exists (combos are built from Transaction history, not the roster), so
 # this falls back to the same email that family's own past Transactions already resolved to (resolved_email,
 # keyed by txn_id, with the raw payer email as its own fallback -- see the Transactions-matching loop above).
+#
+# BUG FIX -- Nov 17, 2026, per Michal's automated run flagging 3 unmatched withdrawals (Shani Vahnish/Naomi
+# Vahnish, Reut Golan/Tamar+Yaela Golan) that she confirmed are intentional full roster removals, not data
+# errors -- so the real problem had to be in this fallback, not the removal itself. Root cause: this dict used
+# to key off the RAW billing name on each transaction (_txrow[4], e.g. "Shani Vahniah", "Matan Golan" -- see
+# KNOWN_PAYER_NAME_ALIASES above, which exists for exactly these two confirmed spelling/co-parent mismatches),
+# while _resolve_withdrawal_family below looks up using the Withdrawals helper sheet's OWN spelling ("Shani
+# Vahnish", "Reut Golan") -- the alias translates billing-name -> Withdrawals-sheet-name, so without applying it
+# here too, this dict was keyed under the wrong spelling and the lookup below could never hit, even though the
+# Transactions-matching loop upstream (which DOES apply the alias) had already resolved these same payments to
+# the correct family. Normalizing through KNOWN_PAYER_NAME_ALIASES here, the same way the Transactions loop
+# does, makes this dict's keys match what _resolve_withdrawal_family actually looks up with.
 _name_to_resolved_email_by_signup = defaultdict(dict)  # signup -> {payer name, lowercased: resolved email}
 for _txrow in tx_rows:
-    _payer_name_key = (_txrow[4] or "").strip().lower()
+    _payer_name_key = KNOWN_PAYER_NAME_ALIASES.get((_txrow[4] or "").strip().lower(), (_txrow[4] or "").strip().lower())
     if _payer_name_key:
         _name_to_resolved_email_by_signup[_txrow[2]].setdefault(
             _payer_name_key, resolved_email.get(_txrow[8], _txrow[5].lower()))
