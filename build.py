@@ -886,6 +886,24 @@ def _winter_camp_fee_for_grade(grade_str):
         return WINTER_CAMP_FEE_UPPER
     return None  # outside the registered grade range -- shouldn't happen, but don't guess
 
+def _decompose_tiered_fee(raw, expected):
+    """(base, donation_amt) for a single participant's roster-sheet fee against their known per-participant
+    price -- generalizes _decompose_seminar_fee above to any flat/tiered per-participant event (added Nov 17,
+    2026, per Michal, after she spotted Conde/Rafael's Winter Camp Roster fee ($345) was really the correct
+    $320 11th-grade tier plus a $25 voluntary donation folded into one number, the same pattern Seminar's roster
+    has had since Aug 28, 2026 -- this just wasn't wired up for Winter Camp yet. donation_amt is 0 if `raw`
+    already equals `expected` or doesn't decompose cleanly against a known Donation Add-on tier (left as-is,
+    no donation assumed, rather than guessing)."""
+    if expected is None:
+        return raw, 0.0
+    diff = round(raw - expected, 2)
+    if diff == 0:
+        return expected, 0.0
+    for tier in DONATION_TIERS:
+        if abs(diff - tier) < 0.01:
+            return expected, float(tier)
+    return raw, 0.0
+
 for i, wrow in enumerate(winter_camp_roster_rows):
     _wc_grade = wrow.get("Grade This Year", "")
     _wc_fee = _winter_camp_fee_for_grade(_wc_grade)
@@ -910,30 +928,53 @@ wb.save("/home/claude/tapuach_report/scaffold.xlsx")
 # event's family-fee dict, this SUMS each kid's own tiered fee rather than multiplying a flat constant by
 # kid-count, since siblings in different grade bands owe different amounts (e.g. a 7th grader + an 11th grader
 # = $405 + $320 = $725, not $405 x 2 or $320 x 2).
+#
+# Also decomposes each participant's own roster-sheet "Participant Fee" against their expected tiered price
+# (added Nov 17, 2026, per Michal -- see _decompose_tiered_fee above) since, same as Seminar, some families'
+# Winter Camp Roster fee bakes in a voluntary Donation Add-on instead of keeping it separate. A scan of the full
+# roster that day found 5 real cases, all clean donation-tier amounts: Conde/Rafael (+$25), Novak/Sophie
+# (+$200), Bitner/Ayelet (+$25), Tal/Shakked (+$25), Franklin/Itay (+$25). winter_camp_family_fee below is set
+# to the real tiered total (excluding any donation); the donation itself is auto-logged on the Transactions tab
+# once the family has any Winter Camp payment -- see the donation auto-detection block after the Transactions
+# loop, same mechanism as seminar_family_donation.
 email_to_winter_camp_kids = defaultdict(list)
 _winter_camp_family_fee_sum = defaultdict(float)
+_winter_camp_family_raw_sum = defaultdict(float)
+_winter_camp_family_donation_sum = defaultdict(float)
 for wrow in winter_camp_roster_rows:
     _key = (wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
             or wrow.get("Email", "").strip().lower().replace("\\_", "_"))
     _wc_grade = wrow.get("Grade This Year", "")
     _wc_fee = _winter_camp_fee_for_grade(_wc_grade) or 0.0  # unrecognized grade contributes $0 rather than crashing --
                                                               # shouldn't happen given registration is 3rd-12th only
+    try:
+        _wc_raw = float((wrow.get("Participant Fee", "") or "0").replace("$", "").replace(",", ""))
+    except ValueError:
+        _wc_raw = _wc_fee  # unparsable -- treat as no donation rather than guessing
+    _wc_base, _wc_donation = _decompose_tiered_fee(_wc_raw, _wc_fee if _wc_fee else None)
     for _e_raw in (wrow.get("Parent 1 Email", ""), wrow.get("Email", "")):
         _e = _e_raw.strip().lower().replace("\\_", "_")
         if _e:
             email_to_winter_camp_kids[_e].append(wrow["Participant Name"] + " (" + _wc_grade + ")")
     if _key:
         _winter_camp_family_fee_sum[_key] += _wc_fee
+        _winter_camp_family_raw_sum[_key] += _wc_raw
+        _winter_camp_family_donation_sum[_key] += _wc_donation
 
 winter_camp_family_fee = {}
+winter_camp_family_donation = {}  # email -> (donation_amt, base_total, raw_total) for embedded-donation families
 for wrow in winter_camp_roster_rows:
     _key = (wrow.get("Parent 1 Email", "").strip().lower().replace("\\_", "_")
             or wrow.get("Email", "").strip().lower().replace("\\_", "_"))
     _total = _winter_camp_family_fee_sum.get(_key, 0.0)
+    _donation_total = _winter_camp_family_donation_sum.get(_key, 0.0)
+    _raw_total = _winter_camp_family_raw_sum.get(_key, 0.0)
     for _e_raw in (wrow.get("Parent 1 Email", ""), wrow.get("Email", "")):
         _e = _e_raw.strip().lower().replace("\\_", "_")
         if _e:
             winter_camp_family_fee[_e] = _total
+            if _donation_total:
+                winter_camp_family_donation[_e] = (_donation_total, _total, _raw_total)
 
 # =========================================================================
 # SHEET 4: Transactions
@@ -1655,13 +1696,41 @@ for _key, _pays in _seminar_pay_by_family.items():
         f"a ${_donation_amt:.0f} voluntary donation on top of the real ${_base_total:.2f} fee (Price Reference "
         f"only lists $345/$305 per participant). Logged here regardless of remaining installments ({_progress}).")
 
+# Auto-detect and log Donation Add-ons for the embedded-donation Winter Camp families found above
+# (winter_camp_family_donation) -- added Nov 17, 2026, per Michal, same mechanism and same "log as soon as any
+# payment exists, regardless of remaining installments" rule as the Seminar block just above.
+_winter_camp_pay_by_family = defaultdict(list)  # lookup key -> [(datetime, txn_id, amount), ...]
+for _d, _row in _parsed_tx:
+    _txn_id = _row[8]
+    if _row[2] != WINTER_CAMP:
+        continue
+    _lookup_key = resolved_email.get(_txn_id, _row[5])
+    if _lookup_key in winter_camp_family_donation:
+        _winter_camp_pay_by_family[_lookup_key].append((_d, _txn_id, _row[3]))
+
+for _key, _pays in _winter_camp_pay_by_family.items():
+    _donation_amt, _base_total, _raw_total = winter_camp_family_donation[_key]
+    _pays.sort(key=lambda p: p[0])
+    _running = sum(_amt for _d_unused, _txn_id_unused, _amt in _pays)
+    _latest_txn_id = _pays[-1][1]
+    donations_map[_latest_txn_id] = donations_map.get(_latest_txn_id, 0.0) + _donation_amt
+    _progress = ("fully paid" if _running >= _base_total
+                 else f"${_running:.2f} of the ${_base_total:.2f} base paid so far, still mid-installment-plan")
+    _wc_dnote = (
+        f"Auto-detected Donation Add-on: this family's Winter Camp Roster Participant Fee(s) (${_raw_total:.2f}) "
+        f"bake in a ${_donation_amt:.0f} voluntary donation on top of the real ${_base_total:.2f} grade-tiered "
+        f"fee (see Read Me). Logged here regardless of remaining installments ({_progress}).")
+    donation_notes[_latest_txn_id] = ((donation_notes[_latest_txn_id] + " " + _wc_dnote)
+                                       if donation_notes.get(_latest_txn_id) else _wc_dnote)
+
 # Merge in the storefront's "$X Donation" line items detected above (Michal, Sep 4, 2026) -- same mechanism as the
-# embedded-Seminar donations just above: populates the Transactions "Donation Add-on" column and flows straight
-# onto the Donations tab.
+# embedded-Seminar/Winter-Camp donations just above: populates the Transactions "Donation Add-on" column and
+# flows straight onto the Donations tab.
 for _store_txn_id, _store_donation_amt in store_order_donations.items():
-    donations_map[_store_txn_id] = _store_donation_amt
-    donation_notes[_store_txn_id] = (
-        f"Storefront \"Donation\" line item (${_store_donation_amt:.0f}) -- also broken out on the Donations tab.")
+    donations_map[_store_txn_id] = donations_map.get(_store_txn_id, 0.0) + _store_donation_amt
+    _store_dnote = f"Storefront \"Donation\" line item (${_store_donation_amt:.0f}) -- also broken out on the Donations tab."
+    donation_notes[_store_txn_id] = ((donation_notes[_store_txn_id] + " " + _store_dnote)
+                                      if donation_notes.get(_store_txn_id) else _store_dnote)
 
 for _tr in tx_rows:
     _dnote = donation_notes.get(_tr[8])
