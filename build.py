@@ -389,6 +389,19 @@ lines = [
      "annotated with a one-off note on his $1.00 Annual transaction; now fully excluded upstream instead (see "
      "TEST_ACCOUNT_EMAILS in the Transactions section below), so he never appears anywhere in this workbook -- Transactions, "
      "Signups, Donations, Store Purchases, the Dashboard, or the Reconciliation gap-check.", "body"),
+    ("DESIGN NOTE for whoever adds the next event (added Nov 17, 2026, per Michal): every embedded-donation auto-"
+     "detection built so far (Seminar, Tet Camp, Winter Camp) decomposes a family's own ROSTER-sheet \"Participant Fee\" "
+     "column against the known base price -- but that column doesn't exist on every registration sheet (Yom Tzofe's "
+     "doesn't, so it currently has no donation auto-detection at all; not worth adding retroactively since Yom Tzofe "
+     "signups are closed for the season, but relevant for whatever comes next). Michal's guidance: don't wait for a "
+     "Participant Fee column -- the real ground truth for \"did this family add a donation\" is the actual Authorize.net "
+     "RECEIPT amount for that event, which exists for every event regardless of what the registration sheet happens to "
+     "carry. For a flat/tiered one-time-payment event (no installment plan), decompose the payment's own Amount against "
+     "the expected per-family fee the same way _decompose_tiered_fee already does for a roster fee column -- same "
+     "DONATION_TIERS, same logic, just fed from the Transactions amount instead of the roster. (For an event that "
+     "supports installment plans, this still needs the roster-fee-column approach or an equivalent day-one signal, "
+     "since a receipt-amount check can't see a donation until enough installments have landed to reveal it -- see the "
+     "Aug 28, 2026 Seminar note above on why \"wait for the running total to catch up\" was explicitly rejected.)", "body"),
 ]
 r = 5
 for text, kind in lines:
