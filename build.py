@@ -162,7 +162,13 @@ lines = [
      "2026 shows $0 deposited that day against $5,420 in batch volume), so a naive same-day \"batch minus fee should equal "
      "deposit\" check would falsely flag every day as a mismatch. One real gap Michal should check for: her forwarded backlog has "
      "no snapshot email for Aug 11 or Aug 12, 2026, even though every other day in the range (including other $0-volume days) has"
-     "one -- worth a look in her tapuach inbox (including spam/trash) for those two dates.", "body"),
+     "one -- worth a look in her tapuach inbox (including spam/trash) for those two dates. Fixed Nov 19, 2026, per Michal: "
+     "Payments Hub's own batch/payout figures already have Authorize.net's ~2% processing fee taken out -- that's the real money "
+     "that lands in the bank -- so \"Our Authorize.net Total\" (the figure the Cumulative Gap is measured against) now nets that "
+     "same ~2% out of our side's gross settled $ too (none on refunds, same carve-out as the Transactions tab's own fee column), "
+     "instead of comparing a fee-net bank figure against a gross Authorize.net one. The Cumulative Gap is noticeably smaller and "
+     "steadier since this fix, since most of what it used to show was that systematic ~2% fee difference rather than real "
+     "settlement lag.", "body"),
     ("Added Sep 11, 2026, per Michal: the Payout by Event tab estimates how much of the actual bank-side payout (Payouts tab) is "
      "attributable to each event -- Annual Membership, Opening Seminar, Tapuach Store -- as a cumulative running total by calendar "
      "month starting August 2026 (each month's row includes everything since Aug 1, not just that month alone). It's an estimate: "
@@ -181,6 +187,13 @@ lines = [
      "(a donation folded into, say, a Winter Camp payment is still money settled under Winter Camp), not an addition to the total "
      "-- it's shown separately purely so the running donation total is visible at a glance without cross-referencing the Donations "
      "tab. The month-over-month table below has the same breakdown added as its own row, for the same reason.", "body"),
+    ("Also fixed Nov 19, 2026, per Michal, on the Payout by Event tab: Payments Hub's own batch/payout figures already have "
+     "Authorize.net's ~2% processing fee taken out -- that's the real money that lands in the bank, not the gross settled amount. "
+     "Every \"Cumulative Settled\" and \"Cumulative Donations\" figure on this tab (cumulative table and month-over-month table "
+     "alike), and the Allocation Ratio / Est. Payout figures built from them, now net that same ~2% out too (none on refunds, same "
+     "carve-out as the Transactions tab's own fee column) -- previously they compared a fee-net bank figure against gross "
+     "Authorize.net settled $, which overstated the settled side and skewed the Allocation Ratio and Estimated Payout by roughly "
+     "that 2%.", "body"),
     ("Added Aug 28, 2026, per Michal: Annual Membership covers every grade, but the Opening Seminar is grades 10-12 only. A "
      "Scholarships row for the Seminar is only shown if the family either has a kid already registered for it, OR has at least one "
      "kid in grades 10-12 on the Annual Roster who could register later. A family matched on the Annual Roster whose kids are all "
@@ -2149,6 +2162,22 @@ def _settled_amount(rr):
         return -_total
     return 0.0  # VOID, or any other/unrecognized Action Code -- never settled, don't guess
 
+def _settled_amount_net_of_fee(rr):
+    # Added Nov 19, 2026, per Michal: Payments Hub's own reported batch/payout figures already have
+    # Authorize.net's ~2% processing fee taken out -- that's the actual money that lands in the org's bank
+    # account, not the gross settled amount _settled_amount() above returns. Comparing our side's GROSS
+    # settled $ against Payments Hub's already-fee-net figures was overstating "our" side by roughly that
+    # 2% on every transaction, which inflated the Payouts tab's Cumulative Gap and skewed the Payout by
+    # Event tab's Allocation Ratio / Estimated Payout away from what actually lands in the bank. This
+    # wrapper nets the same AUTHNET_FEE_RATE (2%) out of a positive settled amount -- a real charge -- so
+    # both of those comparisons are apples to apples against Payments Hub's figures; a refund/credit (a
+    # negative settled amount) is left untouched, same carve-out as the Transactions tab's own per-row fee
+    # column, since Authorize.net doesn't charge its fee on those either. Used ONLY for the Payouts tab's
+    # Cumulative Gap and the Payout by Event tab's settled/donation totals -- _settled_amount() itself is
+    # left returning the gross figure, since nothing else in this workbook needs the fee-net version.
+    _samt = _settled_amount(rr)
+    return _samt * (1 - AUTHNET_FEE_RATE) if _samt > 0 else _samt
+
 recon_rows = []       # rows to display: (Transaction ID, Submit Date, Name, Email, Amount, Invoice Desc, Status)
 recon_report_count = 0
 recon_report_range = ""
@@ -2321,6 +2350,8 @@ payout_rows_raw.sort(key=lambda r: r.get("date", ""))
 payouts_available = len(payout_rows_raw) > 0
 
 # Our own settled totals, grouped by Authorize.net's Settlement Date (date part only) -- used to check batch volume.
+# Net of Authorize.net's ~2% fee (added Nov 19, 2026, per Michal -- see _settled_amount_net_of_fee above), to
+# match Payments Hub's own figures, which are already fee-net.
 _settled_by_date = defaultdict(float)
 _max_settle_date = None
 if recon_available:
@@ -2335,7 +2366,7 @@ if recon_available:
         _sdate = _sdt.date()
         if _max_settle_date is None or _sdate > _max_settle_date:
             _max_settle_date = _sdate
-        _samt = _settled_amount(_rr)
+        _samt = _settled_amount_net_of_fee(_rr)
         _settled_by_date[_sdate] += _samt
 
 payout_display_rows = []  # (date, deposit, batch_vol, txn_count, refunds_disp, batch_vol_net, our_total_disp, diff_disp, cum_gap, cum_gap_pct, status, mtd, notes)
@@ -2433,7 +2464,8 @@ if payouts_available:
                     "worth keeping an eye on" if abs(_last_cum_gap_pct) < 0.20 else
                     "large enough to look into")
         _cum_sentence = (f"As of {_last_cum_date:%b %d, %Y} (the most recent date both sources cover), the running Cumulative Gap "
-                          f"is ${_last_cum_gap:,.2f} ({_last_cum_gap_pct*100:.1f}% of cumulative batch volume, net of refunds) -- "
+                          f"is ${_last_cum_gap:,.2f} ({_last_cum_gap_pct*100:.1f}% of cumulative batch volume, net of refunds and "
+                          f"Authorize.net's ~2% fee) -- "
                           f"{_health}. Day-by-day, the settlement date Authorize.net records for a transaction routinely lands a day "
                           "or more off from the date Payments Hub's batch closed, so per-day differences (columns G/H) are shown for "
                           "reference only, not as a pass/fail -- the Cumulative Gap columns are the more reliable \"is anything major "
@@ -2449,7 +2481,11 @@ if payouts_available:
                 "Cumulative Gap columns actually compare against Authorize.net's own already-refund-netted settled total; the raw "
                 "gross Total Batch Volume stays in column C unchanged, for reference. Total Deposit Amount and Month-to-Date Net "
                 "Deposits are shown for reference too, but not forced into a same-day match, since bank funding lags the batch by an "
-                "uneven number of days (see Read Me).")
+                "uneven number of days (see Read Me). Added Nov 19, 2026, per Michal: Payments Hub's batch/payout figures already "
+                "have Authorize.net's ~2% processing fee taken out -- that's the real money that lands in the bank -- so \"Our "
+                "Authorize.net Total\" (column G) now nets that same ~2% out of our side's gross settled $ too (none on refunds, "
+                "same as the Transactions tab's own fee column), instead of comparing a fee-net bank figure against a gross "
+                "Authorize.net one.")
 else:
     _summary = ("No payout data loaded yet ( no data/payouts_*.csv files found). Michal forwards Payments Hub's daily bank-deposit "
                 "snapshot emails to gizbartapuach@israelscouts.org; once the daily refresh has pulled at least one, this tab will "
@@ -2461,7 +2497,7 @@ ws.merge_cells("A1:M1")
 ws.row_dimensions[1].height = 84
 
 headers = ["Date", "Total Deposit Amount", "Total Batch Volume (gross)", "Transactions", "Refunds",
-           "Batch Volume Net of Refunds", "Our Authorize.net Total (by Settlement Date, net of refunds)",
+           "Batch Volume Net of Refunds", "Our Authorize.net Total (by Settlement Date, net of refunds & ~2% fee)",
            "Day Difference (Net Batch Volume - Ours)",
            "Cumulative Gap ($)", "Cumulative Gap (%)", "Status", "Month-to-Date Net Deposits", "Notes"]
 for i, h in enumerate(headers):
@@ -2550,13 +2586,17 @@ def _classify_desc_pbe(desc):
         return SHACHBAG_CAMP
     return STORE
 
-# Settled $ per (event, settlement-month) from the Authorize.net report, Aug 2026 onward.
+# Settled $ per (event, settlement-month) from the Authorize.net report, Aug 2026 onward. Net of Authorize.net's
+# ~2% fee (added Nov 19, 2026, per Michal -- see _settled_amount_net_of_fee above), to match Payments Hub's own
+# batch/payout figures, which are already fee-net -- this is what actually lands in the bank, not the gross
+# settled amount.
 _settled_by_event_month = defaultdict(float)  # (event, (year, month)) -> $
 # Settled Donation Add-on $ per month (ADDED Nov 19, 2026, per Michal) -- a SUBSET of the per-event totals above
 # (a donation folded into a signup payment is still counted under that event's own Cumulative Settled column), not
 # extra money. Matched by Transaction ID against donations_map (populated earlier, in the Transactions section),
 # restricted to the same settlement-date scope as everything else on this tab, so only donations that have
-# actually settled show up here -- same reasoning as the rest of this sheet's scope note.
+# actually settled show up here -- same reasoning as the rest of this sheet's scope note. Also netted of the ~2%
+# fee, same as the settled totals above, so it stays a true subset of them.
 _donations_settled_by_month = defaultdict(float)  # (year, month) -> $
 _pbe_months = set()
 if recon_available:
@@ -2571,7 +2611,7 @@ if recon_available:
         _sdate = _sdt.date()
         if _sdate < _PBE_SCOPE_START:
             continue
-        _samt = _settled_amount(_rr)
+        _samt = _settled_amount_net_of_fee(_rr)
         _event = _classify_desc_pbe(_rr.get("Invoice Description", ""))
         _month_key = (_sdate.year, _sdate.month)
         _settled_by_event_month[(_event, _month_key)] += _samt
@@ -2579,7 +2619,7 @@ if recon_available:
         _tid_pbe = (_rr.get("Transaction ID") or "").strip()
         _donation_amt_pbe = donations_map.get(_tid_pbe)
         if _donation_amt_pbe:
-            _donations_settled_by_month[_month_key] += _donation_amt_pbe
+            _donations_settled_by_month[_month_key] += _donation_amt_pbe * (1 - AUTHNET_FEE_RATE)
 
 # Actual bank batch volume per payout-date-month, Aug 2026 onward, restricted to dates within Authorize.net's own
 # report coverage (same restriction the Payouts tab uses -- payout date <= _max_settle_date) so we don't compare
@@ -2648,18 +2688,23 @@ _pbe_summary = (
     "built, to match the already-refund-netted Authorize.net settled totals it's compared against (same fix as "
     "the Payouts tab). Added Nov 19, 2026, per Michal: \"Cumulative Donations\" is the running total of settled "
     "Donation Add-ons (see Donations tab) -- a SUBSET already counted inside the per-event Settled columns above, "
-    "shown separately just so the donation total is visible at a glance without cross-referencing the Donations tab."
+    "shown separately just so the donation total is visible at a glance without cross-referencing the Donations "
+    "tab. Also added Nov 19, 2026, per Michal: Payments Hub's own batch/payout figures already have Authorize.net's "
+    "~2% processing fee taken out -- that's the real money that lands in the bank -- so every \"Cumulative Settled\" "
+    "and \"Cumulative Donations\" figure here (and the Allocation Ratio / Est. Payout figures built from them) now "
+    "nets that same ~2% out too (none on refunds, same carve-out as the Transactions tab's own fee column), instead "
+    "of comparing fee-net bank figures against gross Authorize.net ones."
 )
 ws["A1"] = _pbe_summary
 ws["A1"].font = SUB_FONT
 ws["A1"].alignment = Alignment(wrap_text=True, vertical="top")
-ws.merge_cells("A1:P1")
+ws.merge_cells("A1:S1")
 ws.row_dimensions[1].height = 110
 
 headers = ["Month", "Cumulative Settled -- Annual Membership", "Cumulative Settled -- Opening Seminar",
            "Cumulative Settled -- Yom Tzofe", "Cumulative Settled -- Tet Camp", "Cumulative Settled -- Winter Camp",
            "Cumulative Settled -- Shachbag Camp", "Cumulative Settled -- Tapuach Store",
-           "Cumulative Settled -- Total (Authorize.net)",
+           "Cumulative Settled -- Total (Authorize.net, net of refunds & ~2% fee)",
            "Cumulative Donations (subset of Settled totals above -- added Nov 19, 2026, per Michal)",
            "Cumulative Actual Bank Payout (Payments Hub, net of refunds)", "Allocation Ratio (Payout / Settled)",
            "Est. Payout -- Annual Membership", "Est. Payout -- Opening Seminar", "Est. Payout -- Yom Tzofe",
