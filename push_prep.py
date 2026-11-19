@@ -4,8 +4,19 @@ Sheet (spreadsheetId 1_2HBIlRutX2BM09afFyJW8m-57RhmyGO7_1Q779EozA), replacing
 the old flow of sending her the .xlsx to import by hand.
 
 Run AFTER build.py and the recalc validation step (STEP 6), so
-/tmp/recalc/Tapuach_Payments_Tracker.xlsx already exists with every formula
-cell resolved to its computed value (data_only=True reads that correctly).
+Tapuach_Payments_Tracker.xlsx already has every formula cell resolved to its
+computed value (data_only=True reads that correctly). FIXED Nov 19, 2026, per
+Michal: this used to point at /tmp/recalc/Tapuach_Payments_Tracker.xlsx, a
+stale assumption left over from an earlier local recalc.py that called
+LibreOffice with `--outdir /tmp/recalc` and so produced a separate recalculated
+copy there. The actual recalc.py used in STEP 6 (/mnt/skills/public/xlsx/scripts/
+recalc.py) works differently -- LibreOffice recalculates a throwaway copy of
+its own (in a tempfile.TemporaryDirectory it cleans up itself) and only the
+*computed values* get written back into the original file, in place, at
+whatever path was passed to it. So the real recalculated file to read here is
+just Tapuach_Payments_Tracker.xlsx itself, right where build.py wrote it --
+never /tmp/recalc/anything. If recalc.py is ever swapped for one that behaves
+differently again, re-check this assumption rather than trusting it blindly.
 
 For each worksheet, writes one or more small JSON chunk files to
 /home/claude/tapuach_report/sheets_push/, each named
@@ -38,7 +49,7 @@ import re
 import datetime
 import openpyxl
 
-SRC = "/tmp/recalc/Tapuach_Payments_Tracker.xlsx"
+SRC = "/home/claude/tapuach_report/Tapuach_Payments_Tracker.xlsx"  # fixed Nov 19, 2026 -- see docstring above
 OUT_DIR = "/home/claude/tapuach_report/sheets_push"
 MAX_CHUNK_BYTES = 30000  # stay well under the ~43KB Read-tool truncation point
 
