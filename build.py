@@ -175,6 +175,12 @@ lines = [
      "per month instead of one row -- with each cell showing that month's OWN isolated activity (not cumulative-to-date), so month-"
      "to-month swings are easy to read across a row instead of having to subtract consecutive rows in the cumulative table.",
      "body"),
+    ("Added Nov 19, 2026, per Michal: the Payout by Event tab's cumulative table now also shows a \"Cumulative Donations\" "
+     "column -- the running total of Donation Add-ons (see Donations tab) among transactions that have actually settled through "
+     "Authorize.net within this tab's own scope. This is a SUBSET already counted inside the per-event Cumulative Settled columns "
+     "(a donation folded into, say, a Winter Camp payment is still money settled under Winter Camp), not an addition to the total "
+     "-- it's shown separately purely so the running donation total is visible at a glance without cross-referencing the Donations "
+     "tab. The month-over-month table below has the same breakdown added as its own row, for the same reason.", "body"),
     ("Added Aug 28, 2026, per Michal: Annual Membership covers every grade, but the Opening Seminar is grades 10-12 only. A "
      "Scholarships row for the Seminar is only shown if the family either has a kid already registered for it, OR has at least one "
      "kid in grades 10-12 on the Annual Roster who could register later. A family matched on the Annual Roster whose kids are all "
@@ -2546,6 +2552,12 @@ def _classify_desc_pbe(desc):
 
 # Settled $ per (event, settlement-month) from the Authorize.net report, Aug 2026 onward.
 _settled_by_event_month = defaultdict(float)  # (event, (year, month)) -> $
+# Settled Donation Add-on $ per month (ADDED Nov 19, 2026, per Michal) -- a SUBSET of the per-event totals above
+# (a donation folded into a signup payment is still counted under that event's own Cumulative Settled column), not
+# extra money. Matched by Transaction ID against donations_map (populated earlier, in the Transactions section),
+# restricted to the same settlement-date scope as everything else on this tab, so only donations that have
+# actually settled show up here -- same reasoning as the rest of this sheet's scope note.
+_donations_settled_by_month = defaultdict(float)  # (year, month) -> $
 _pbe_months = set()
 if recon_available:
     for _rr in _report_rows:
@@ -2564,6 +2576,10 @@ if recon_available:
         _month_key = (_sdate.year, _sdate.month)
         _settled_by_event_month[(_event, _month_key)] += _samt
         _pbe_months.add(_month_key)
+        _tid_pbe = (_rr.get("Transaction ID") or "").strip()
+        _donation_amt_pbe = donations_map.get(_tid_pbe)
+        if _donation_amt_pbe:
+            _donations_settled_by_month[_month_key] += _donation_amt_pbe
 
 # Actual bank batch volume per payout-date-month, Aug 2026 onward, restricted to dates within Authorize.net's own
 # report coverage (same restriction the Payouts tab uses -- payout date <= _max_settle_date) so we don't compare
@@ -2600,10 +2616,12 @@ _pbe_sorted_months = sorted(_pbe_months)
 pbe_rows = []  # one row per month: cumulative figures as of that month's end (or latest data available)
 _cum_settled_by_event_pbe = defaultdict(float)
 _cum_batch_pbe = 0.0
+_cum_donations_pbe = 0.0
 for _mk in _pbe_sorted_months:
     for _event in _EVENT_ORDER_PBE:
         _cum_settled_by_event_pbe[_event] += _settled_by_event_month.get((_event, _mk), 0.0)
     _cum_batch_pbe += _batch_by_month.get(_mk, 0.0)
+    _cum_donations_pbe += _donations_settled_by_month.get(_mk, 0.0)
     _cum_settled_total_pbe = sum(_cum_settled_by_event_pbe.values())
     _ratio_pbe = (_cum_batch_pbe / _cum_settled_total_pbe) if _cum_settled_total_pbe else None
     _est_pbe = {}
@@ -2611,7 +2629,7 @@ for _mk in _pbe_sorted_months:
         _est_pbe[_event] = (_cum_settled_by_event_pbe[_event] * _ratio_pbe) if _ratio_pbe is not None else None
     _month_label = _dt(_mk[0], _mk[1], 1).strftime("%B %Y")
     pbe_rows.append((_month_label, dict(_cum_settled_by_event_pbe), _cum_settled_total_pbe, _cum_batch_pbe,
-                      _ratio_pbe, _est_pbe))
+                      _ratio_pbe, _est_pbe, _cum_donations_pbe))
 
 ws = wb.create_sheet("Payout by Event")
 _pbe_summary = (
@@ -2628,7 +2646,9 @@ _pbe_summary = (
     "Bank Payout\" figure below is net of refunds -- Payments Hub's daily \"Total Batch Volume\" is gross and "
     "reports that day's refunds separately, so each day's refunds are subtracted before this monthly total is "
     "built, to match the already-refund-netted Authorize.net settled totals it's compared against (same fix as "
-    "the Payouts tab)."
+    "the Payouts tab). Added Nov 19, 2026, per Michal: \"Cumulative Donations\" is the running total of settled "
+    "Donation Add-ons (see Donations tab) -- a SUBSET already counted inside the per-event Settled columns above, "
+    "shown separately just so the donation total is visible at a glance without cross-referencing the Donations tab."
 )
 ws["A1"] = _pbe_summary
 ws["A1"].font = SUB_FONT
@@ -2640,6 +2660,7 @@ headers = ["Month", "Cumulative Settled -- Annual Membership", "Cumulative Settl
            "Cumulative Settled -- Yom Tzofe", "Cumulative Settled -- Tet Camp", "Cumulative Settled -- Winter Camp",
            "Cumulative Settled -- Shachbag Camp", "Cumulative Settled -- Tapuach Store",
            "Cumulative Settled -- Total (Authorize.net)",
+           "Cumulative Donations (subset of Settled totals above -- added Nov 19, 2026, per Michal)",
            "Cumulative Actual Bank Payout (Payments Hub, net of refunds)", "Allocation Ratio (Payout / Settled)",
            "Est. Payout -- Annual Membership", "Est. Payout -- Opening Seminar", "Est. Payout -- Yom Tzofe",
            "Est. Payout -- Tet Camp", "Est. Payout -- Winter Camp", "Est. Payout -- Shachbag Camp",
@@ -2648,12 +2669,13 @@ for i, h in enumerate(headers):
     ws.cell(row=2, column=1+i, value=h)
 style_header(ws, 2, len(headers), start_col=1)
 
-for i, (_month_label, _cum_settled, _cum_settled_total, _cum_batch_val, _ratio, _est) in enumerate(pbe_rows):
+for i, (_month_label, _cum_settled, _cum_settled_total, _cum_batch_val, _ratio, _est, _cum_donations) in enumerate(pbe_rows):
     rownum = 3 + i
     vals = [
         _month_label,
         _cum_settled[ANNUAL], _cum_settled[SEMINAR], _cum_settled[YOM_TZOFE], _cum_settled[TET_CAMP], _cum_settled[WINTER_CAMP],
         _cum_settled[SHACHBAG_CAMP], _cum_settled[STORE], _cum_settled_total,
+        _cum_donations,
         _cum_batch_val,
         _ratio if _ratio is not None else "--",
         _est[ANNUAL] if _est[ANNUAL] is not None else "--",
@@ -2665,11 +2687,11 @@ for i, (_month_label, _cum_settled, _cum_settled_total, _cum_batch_val, _ratio, 
         _est[STORE] if _est[STORE] is not None else "--",
     ]
     body_row(ws, rownum, vals, len(vals), start_col=1)
-    for col in (2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18):
+    for col in (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19):
         c = ws.cell(row=rownum, column=col)
         if isinstance(c.value, (int, float)):
             c.number_format = CURRENCY
-    _rc = ws.cell(row=rownum, column=11)
+    _rc = ws.cell(row=rownum, column=12)
     if isinstance(_rc.value, (int, float)):
         _rc.number_format = '0.0%'
 
@@ -2680,7 +2702,7 @@ if not pbe_rows:
     last_row = 3
 
 ws.freeze_panes = "A3"
-ws.auto_filter.ref = f"A2:R{max(last_row, 2)}"
+ws.auto_filter.ref = f"A2:S{max(last_row, 2)}"
 
 # --- Month-over-month breakdown (added Sep 11, 2026, per Michal) --------------------------------------------
 # Same underlying event classification/scope as the cumulative table above, but TRANSPOSED (one column per
@@ -2709,6 +2731,8 @@ if pbe_rows:
         ("Shachbag Camp", lambda _mk: _settled_by_event_month.get((SHACHBAG_CAMP, _mk), 0.0)),
         ("Tapuach Store", lambda _mk: _settled_by_event_month.get((STORE, _mk), 0.0)),
         ("Total Settled", lambda _mk: sum(_settled_by_event_month.get((_e, _mk), 0.0) for _e in _EVENT_ORDER_PBE)),
+        ("Donations (subset of Total Settled above -- added Nov 19, 2026, per Michal)",
+         lambda _mk: _donations_settled_by_month.get(_mk, 0.0)),
         ("Total Actual Bank Payout", lambda _mk: _batch_by_month.get(_mk, 0.0)),
     ]
     for j, (_label, _fn) in enumerate(mom_row_defs):
